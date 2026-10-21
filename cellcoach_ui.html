@@ -1,0 +1,4010 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cell Coach</title>
+<script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.3/dist/twilio.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@telnyx/webrtc@2.27.8/lib/bundle.js"></script>
+<script src="https://cdn.plivo.com/sdk/browser/v2/plivo.min.js"></script>
+<style>
+:root{--bg:#f4f6f9;--panel:#ffffff;--panel2:#eef1f5;--line:#dde3ea;--txt:#17222e;--dim:#5b6b7c;--acc:#2563eb;--good:#0a9d63;--bad:#dc2626;--gold:#b45309;--blue:#2563eb;--purple:#7c3aed;--green:#0a9d63;--red:#dc2626;--yellow:#b45309;--shadow:0 1px 3px rgba(15,23,42,.07)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:13px/1.5 system-ui,-apple-system,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── Shared ───────────────────────────────────────────────────────── */
+.status-pill{font-size:11px;padding:2px 10px;border-radius:12px;font-weight:600}
+.status-pill.ok{background:#dcf5e9;color:#0a7a4d}
+.status-pill.warn{background:#fdf0d5;color:#92600a}
+.status-pill.err{background:#fde3e3;color:#b91c1c}
+
+/* ── Cockpit: setup view ──────────────────────────────────────────── */
+#setupView{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+.ck-topbar{background:var(--panel);border-bottom:1px solid var(--line);height:48px;padding:0 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;box-shadow:var(--shadow);z-index:2}
+.ck-brand{font-size:14px;font-weight:700;letter-spacing:1px;white-space:nowrap;margin-right:4px;color:var(--acc)}
+#personaSelect,#playbookSelect{height:28px;font:12px system-ui;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:0 8px;cursor:pointer;max-width:200px}
+.ghost-btn{height:28px;padding:0 12px;font:600 11px system-ui;background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ghost-btn:hover{color:var(--txt);border-color:var(--dim);background:var(--panel2)}
+.ck-topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+
+.setup-error{background:#fde3e3;border-bottom:1px solid #f3b8b8;color:#b91c1c;padding:8px 16px;font-size:12px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+.setup-error.show{display:flex}
+.setup-error .dismiss{cursor:pointer;font-weight:700;color:#b91c1c;padding:0 6px;flex-shrink:0}
+
+.cockpit{flex:1;display:grid;grid-template-columns:380px 1fr;overflow:hidden}
+
+/* ── Queue column ─────────────────────────────────────────────────── */
+.queue-col{border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;background:var(--panel)}
+.q-source-row{padding:6px 8px;border-bottom:1px solid var(--line);display:flex;gap:5px;flex-shrink:0;align-items:center;flex-wrap:wrap}
+.q-source-row select{flex:1;min-width:0;height:26px;font:11px system-ui;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:4px;padding:0 6px;cursor:pointer}
+.q-source-row .ghost-btn{height:26px;padding:0 9px;font-size:11px}
+.q-manual-row{padding:0 14px 0 12px;height:40px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;font-weight:600;color:var(--dim);border-left:3px solid transparent;flex-shrink:0;transition:all .12s}
+.q-manual-row:hover{color:var(--txt);background:var(--panel2)}
+.q-manual-row.active{border-left-color:var(--acc);color:var(--acc);background:#eaf1fe}
+.q-filter-row{padding:6px 8px;border-bottom:1px solid var(--line);display:flex;gap:5px;flex-shrink:0}
+.q-filter-row input,.q-filter-row select{height:26px;font:11px system-ui;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:4px;padding:0 6px}
+.q-filter-row input{flex:1;min-width:0}
+.q-header{padding:0 14px;font-size:10px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--line);flex-shrink:0;height:24px;display:flex;align-items:center;overflow:hidden;white-space:nowrap}
+.queue-list{flex:1;overflow-y:auto}
+.q-row{padding:8px 14px 8px 12px;border-bottom:1px solid var(--line);cursor:pointer;border-left:3px solid transparent;min-height:54px;display:flex;flex-direction:column;justify-content:center;transition:background .1s}
+.q-row:hover{background:var(--panel2)}
+.q-row.active{border-left-color:var(--acc);background:#eaf1fe}
+.q-row-top{display:flex;align-items:center;gap:6px;margin-bottom:2px;pointer-events:none}
+.q-owner{font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-play-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.play-fire,.play-water,.play-foreclosure{background:#fde3e3;color:#b91c1c}
+.play-str{background:#fdf0d5;color:#92600a}
+.play-general,.play-311{background:#eceff3;color:#5b6b7c}
+.play-abatement,.play-structure,.play-land_use,.play-permit,.play-land_use_commercial{background:#e3ecfd;color:#1d55c0}
+.q-score-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.score-high{background:var(--good)}
+.score-medium{background:var(--gold)}
+.score-low,.score-{background:var(--dim)}
+.q-row-sub{font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Courier New',monospace;pointer-events:none}
+.q-call-badge{font-size:10px;color:var(--gold);font-weight:700;margin-left:4px;font-family:system-ui}
+.q-reason-badge{font-size:9px;font-weight:800;letter-spacing:.4px;padding:1px 6px;border-radius:8px;flex-shrink:0;font-family:system-ui}
+.q-reason-badge.reason-callback_due{background:#fdecd2;color:#92400e}
+.q-reason-badge.reason-touch_cadence_due{background:#dbeafe;color:#1d4ed8}
+.q-reason-badge.reason-hot_untouched{background:#fde3e3;color:#b91c1c}
+.q-reason-badge.reason-new_today_with_phone{background:#dcf5e9;color:#0a7a4d}
+.q-empty{padding:24px 14px;font-size:12px;color:var(--dim);text-align:center}
+
+/* ── CSV dropzone ── */
+.csv-drop{margin:8px;border:2px dashed var(--line);border-radius:10px;padding:14px 12px;text-align:center;font-size:12px;color:var(--dim);cursor:pointer;flex-shrink:0;transition:all .15s;background:var(--panel)}
+.csv-drop:hover{border-color:var(--acc);color:var(--acc);background:#f5f9ff}
+.csv-drop.drag{border-color:var(--acc);background:#eaf1fe;color:var(--acc)}
+.csv-drop b{color:var(--txt)}
+.csv-feedback{margin:0 8px 8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;display:none;flex-shrink:0}
+.csv-feedback.show{display:block}
+.csv-feedback.ok{background:#dcf5e9;color:#0a7a4d}
+.csv-feedback.err{background:#fde3e3;color:#b91c1c}
+.csv-map-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+.csv-map-row label{flex:0 0 130px;font-size:12px;font-weight:600;color:var(--txt)}
+.csv-map-row select{flex:1;height:30px;font:12px system-ui;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:0 8px;cursor:pointer}
+.csv-preview{font:11px 'Courier New',monospace;color:var(--dim);background:var(--panel2);border-radius:6px;padding:8px 10px;margin-top:10px;max-height:90px;overflow:auto;white-space:pre}
+
+/* ── Setup column ─────────────────────────────────────────────────── */
+.setup-col{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+
+.lead-banner{padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--panel);box-shadow:var(--shadow)}
+.lb-manual-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;font-weight:700}
+.lb-row1{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.lb-owner{font-size:22px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-badges{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.play-badge{font-size:10px;font-weight:700;padding:2px 10px;border-radius:4px;text-transform:uppercase}
+.score-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px}
+.score-chip.HIGH{background:#dcf5e9;color:#0a7a4d}
+.score-chip.MEDIUM{background:#fdf0d5;color:#92600a}
+.score-chip.LOW{background:#eceff3;color:#5b6b7c}
+.score-chip.CRITICAL{background:#fbdce0;color:#b4232f}
+.score-chip.MED{background:#fdf0d5;color:#92600a}
+.lb-phone-row{margin-bottom:3px}
+.lb-phone-row input{font:700 20px 'Courier New',monospace;color:var(--acc);background:transparent;border:none;border-bottom:2px solid var(--line);width:100%;padding:0 0 2px 0;outline:none;caret-color:var(--acc)}
+.lb-phone-row input:focus{border-bottom-color:var(--acc)}
+.lb-phone-row input::placeholder{color:#9aa7b4;font-weight:400;font-size:16px}
+.lb-meta{font-size:12px;color:var(--dim);margin-bottom:1px}
+.lb-detail{font-size:11px;color:var(--dim)}
+
+.recall-strip{padding:7px 20px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim);border-left:3px solid var(--gold);display:none;background:#fffaf0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0}
+.recall-strip.show{display:block}
+.val-strip{display:none;padding:8px 20px;border-bottom:1px solid var(--line);border-left:3px solid var(--acc);background:#f2f8ff;font-size:12px;flex-shrink:0;align-items:center;gap:14px;flex-wrap:wrap}
+.val-strip.show{display:flex}
+.val-item{display:flex;flex-direction:column;gap:1px}
+.val-k{font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+.val-v{font-size:14px;font-weight:700;color:var(--txt)}
+.val-v.hot{color:var(--acc)}
+.val-band{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:#e7e0f7;color:#5b3fa8;text-transform:uppercase}
+.val-note{font-size:11px;color:var(--dim);font-style:italic}
+
+.ctx-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:12px 20px;border-bottom:1px solid var(--line);flex-shrink:0}
+.ctx-cell{display:flex;flex-direction:column;gap:3px}
+.span1{grid-column:span 1}
+.span2{grid-column:span 2}
+.span3{grid-column:span 3}
+.ctx-label{font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+.ctx-grid input,.ctx-grid select{height:34px;font:12px system-ui;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:0 8px;width:100%}
+.ctx-grid select{cursor:pointer}
+.ctx-grid input:focus,.ctx-grid select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+
+.setup-spacer{flex:1}
+.start-area{padding:14px 20px;border-top:1px solid var(--line);background:var(--panel);flex-shrink:0;box-shadow:0 -1px 3px rgba(15,23,42,.05)}
+.start-row{display:flex;gap:10px;align-items:stretch;margin-bottom:8px}
+.btn-start{flex:1;height:64px;font:800 18px system-ui;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border:none;border-radius:10px;cursor:pointer;letter-spacing:.5px;transition:filter .15s;box-shadow:0 2px 6px rgba(29,78,216,.28)}
+.btn-start:hover{filter:brightness(1.08)}
+.start-hint{font-size:11px;color:var(--dim);text-align:center;line-height:1.5}
+
+/* ── Modals ───────────────────────────────────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50}
+.modal-bg.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:640px;max-height:85vh;overflow-y:auto;padding:20px;box-shadow:0 12px 40px rgba(15,23,42,.18)}
+.modal-h{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{font-size:20px;cursor:pointer;color:var(--dim);background:none;border:none;line-height:1;padding:0 4px}
+.modal-close:hover{color:var(--txt)}
+.modal-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;font-weight:600;margin-top:10px}
+.modal input,.modal textarea{font:13px system-ui;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+.modal textarea{resize:vertical;min-height:240px;font-size:12px;line-height:1.6}
+.modal-btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.modal-btn-row button{padding:9px 14px;border-radius:6px;font:600 12px system-ui;cursor:pointer;border:none}
+.mbtn-primary{background:var(--acc);color:#fff}
+.mbtn-secondary{background:var(--panel2);color:var(--txt);border:1px solid var(--line)!important}
+.mbtn-danger{background:transparent;color:var(--bad);border:1px solid var(--bad)!important}
+.persona-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.persona-item:last-child{border-bottom:none}
+.persona-item.editing{color:var(--acc)}
+.modal textarea.short{min-height:0}
+.modal select.sel{font:12px system-ui;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:100%}
+.tactic-row{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0;background:var(--panel2)}
+.tactic-row .tr-grid{display:grid;grid-template-columns:1fr 1fr 1fr 24px;gap:6px;align-items:center}
+.tactic-row .tr-del{background:transparent;border:none;color:var(--bad);cursor:pointer;font-size:14px;padding:2px}
+.tactic-row input,.tactic-row textarea{margin-top:6px;font-size:12px!important}
+.tactic-row textarea{min-height:0!important}
+.pi-name{flex:1;cursor:pointer}
+.pi-name:hover{color:var(--acc)}
+.pi-tag{font-size:10px;color:var(--dim)}
+.modal-note{font-size:11px;color:var(--dim);line-height:1.6;background:var(--panel2);border-radius:6px;padding:10px 12px;margin-bottom:8px}
+.hist-row{padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--txt)}
+.hist-row:last-child{border-bottom:none}
+.hist-date{color:var(--dim);font-size:11px}
+.hist-row a{color:var(--acc)}
+
+@media(max-width:1100px){.cockpit{grid-template-columns:300px 1fr}}
+
+/* ── Live view ────────────────────────────────────────────────────── */
+.topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow);z-index:2}
+.topbar .timer{font-family:'Courier New',monospace;font-size:28px;font-weight:700;min-width:100px;text-align:right}
+.live-dot{width:10px;height:10px;border-radius:50%;background:var(--bad);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.live-wrap{display:none;flex:1;overflow:hidden;flex-direction:column}
+.live-wrap.show{display:flex}
+.live-main{flex:1;display:flex;gap:12px;padding:12px 16px;overflow:hidden}
+
+.transcript-col{flex:1;display:flex;flex-direction:column;background:var(--panel);border-radius:12px;border:1px solid var(--line);overflow:hidden;box-shadow:var(--shadow)}
+.transcript-col .head{padding:10px 14px;font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--line);flex-shrink:0}
+.transcript-col .messages{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:78%;padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.5;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.prospect{align-self:flex-start;background:#eef1f5;color:var(--txt);border-bottom-left-radius:4px}
+.msg.rep{align-self:flex-end;background:#2563eb;color:#fff;border-bottom-right-radius:4px}
+.msg .speaker{font-size:10px;font-weight:700;margin-bottom:2px;opacity:.7}
+.msg.prospect .speaker{color:var(--gold)}
+.msg.rep .speaker{color:#c9dcfc}
+.msg.partial{align-self:flex-start;background:#f0f2f5;color:#7a8896;font-style:italic;border-bottom-left-radius:4px}
+.waiting{text-align:center;color:var(--dim);font-size:13px;padding:40px 0}
+
+.coach-col{flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.coach-col .head{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:4px 0}
+
+.say-card{background:var(--panel);border:2px solid var(--acc);border-radius:14px;padding:16px;display:none;box-shadow:0 2px 10px rgba(37,99,235,.12)}
+.say-card.show{display:block}
+.say-card .obj-line{font-size:12px;color:var(--gold);margin-bottom:6px;font-weight:600}
+.say-card .context-line{font-size:12px;color:var(--dim);font-style:italic;margin-bottom:8px}
+.coach-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 10px;border-radius:12px;margin-bottom:8px;text-transform:capitalize}
+.coach-badge.rebuttal{background:#fde3e3;color:#b91c1c}
+.coach-badge.empathy{background:#ede9fe;color:#6d28d9}
+.coach-badge.close{background:#dcf5e9;color:#0a7a4d}
+.coach-badge.discovery{background:#e3ecfd;color:#1d55c0}
+.coach-badge.rapport{background:#fdf0d5;color:#92600a}
+.coach-badge.instant{background:#fdf0d5;color:#92600a}
+.coach-badge.screening{background:#ede9fe;color:#6d28d9}
+.msg.screening{border:1px dashed #7c3aed;opacity:.9}
+.say-label{font-size:10px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+.say-words{font-size:24px;font-weight:600;line-height:1.4;color:var(--txt)}
+.alt-toggle{margin-top:10px;font-size:12px;color:var(--acc);cursor:pointer;text-align:center}
+.alt-toggle:hover{text-decoration:underline}
+
+.checklist-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.ck-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);margin:4px 0}
+.ck-row.on{color:var(--good)}
+.ck-row .dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.ck-row.on .dot{border-color:var(--good);color:var(--good)}
+.ck-progress{height:4px;background:#dde3ea;border-radius:4px;margin:8px 0}
+.ck-progress .fill{height:100%;background:var(--acc);border-radius:4px;transition:width .3s}
+
+.intel-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13px;box-shadow:var(--shadow)}
+.intel-card .label{font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.intel-temp{font-size:11px;color:var(--dim);font-weight:400;text-transform:none}
+.intel-row{display:flex;align-items:flex-start;gap:8px;margin:5px 0;line-height:1.4}
+.intel-key{font-size:10px;font-weight:700;color:var(--dim);text-transform:uppercase;min-width:88px;padding-top:1px;flex-shrink:0}
+.intel-val.filled{color:var(--txt)}
+.intel-val.empty{color:#93a1af;font-style:italic}
+
+.coach-waiting{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;text-align:center;color:var(--dim);font-size:13px;box-shadow:var(--shadow)}
+
+.rec-dot{font-size:11px;color:var(--bad);font-weight:700;display:none;align-items:center;gap:4px}
+.rec-dot.show{display:flex}
+
+.dispo-bar{background:var(--panel);border-top:1px solid var(--line);padding:10px 16px;flex-shrink:0;display:none;box-shadow:0 -1px 3px rgba(15,23,42,.05)}
+.dispo-bar.wrap-pulse{display:block;animation:wrapPulse 1.2s ease-in-out infinite}
+@keyframes wrapPulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(180,83,9,0)}50%{box-shadow:inset 0 0 24px 4px rgba(180,83,9,.22)}}
+
+/* ── Autodial cadence ── */
+.autodial-bar{display:none;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(90deg,rgba(180,83,9,.10),rgba(180,83,9,.03));border:1px solid rgba(180,83,9,.4);border-radius:8px;padding:8px 12px;margin-bottom:8px}
+.autodial-bar.show{display:flex;animation:adPulse 1s ease-in-out infinite}
+@keyframes adPulse{0%,100%{border-color:rgba(180,83,9,.4)}50%{border-color:rgba(180,83,9,.85)}}
+.autodial-bar .ad-text{font-size:13px;color:var(--txt)}
+.autodial-bar .ad-text b{color:var(--gold);font-size:15px}
+.autodial-bar .ad-hint{opacity:.65;font-size:11px;margin-left:6px}
+.autodial-bar .ad-cancel{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px}
+.autodial-bar .ad-cancel:hover{color:var(--gold);border-color:var(--gold)}
+.ad-chip{font-size:11px;color:var(--dim);padding:3px 8px;border:1px solid var(--line);border-radius:10px;white-space:nowrap;background:var(--panel)}
+.ad-chip.guard{color:var(--gold);border-color:rgba(180,83,9,.45)}
+#btnAutoDial.on{color:#0a7a4d;border-color:rgba(10,157,99,.5)}
+.dispo-bar.show{display:block}
+.dispo-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.dispo-btn{padding:14px 8px;border-radius:10px;font-size:13px;font-weight:700;color:#fff;text-align:center;border:none;cursor:pointer}
+.dispo-btn:hover{filter:brightness(1.1)}
+.dispo-btn.paid{background:#0a9d63}
+.dispo-btn.followup{background:#2563eb}
+.dispo-btn.notint{background:#dc2626}
+.dispo-btn.noans{background:#64748b}
+.dispo-btn.bad{background:#991b1b}
+.dispo-btn kbd{display:block;font-size:10px;opacity:.65;margin-top:2px}
+.dispo-controls{display:flex;gap:10px;margin-top:8px}
+.dispo-controls button{flex:1;padding:10px;border-radius:8px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);font-size:13px;cursor:pointer;font:inherit}
+.fu-row{display:none;margin:8px 0}
+
+.twilio-controls{display:flex;gap:8px;align-items:center;margin-left:12px}
+.twilio-controls button{padding:6px 12px;font-size:12px;border-radius:8px;font:inherit;cursor:pointer;font-weight:600;border:none}
+.btn-mute{background:var(--panel2);color:var(--txt);border:1px solid var(--line)!important}
+.btn-mute.on{background:#fde3e3;color:#b91c1c;border-color:#f3b8b8!important}
+.btn-hangup{background:var(--bad);color:#fff}
+
+@media(max-width:768px){
+  .live-main{flex-direction:column}
+  .coach-col{width:100%;max-height:40vh}
+  .dispo-grid{grid-template-columns:repeat(3,1fr)}
+}
+
+/* ── Train Mode ───────────────────────────────────────────────── */
+.train-setup{padding:24px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;overflow-y:auto;flex:1;background:var(--bg)}
+.train-picker-col{width:300px;flex-shrink:0;display:flex;flex-direction:column;gap:14px}
+.train-info-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px}
+.train-section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;box-shadow:var(--shadow)}
+.train-section-title{font-size:10px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.train-select{width:100%;height:36px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:0 10px;font:13px system-ui;cursor:pointer;margin-bottom:12px}
+.train-select:focus{outline:none;border-color:var(--purple)}
+.diff-group{display:flex;gap:8px;margin-bottom:4px}
+.diff-btn{flex:1;padding:10px 6px;border-radius:8px;border:2px solid var(--line);background:var(--panel2);color:var(--dim);font:600 12px system-ui;cursor:pointer;text-align:center;transition:all .15s}
+.diff-btn:hover{border-color:var(--dim);color:var(--txt)}
+.diff-btn.active[data-diff="easy"]{border-color:var(--good);color:var(--good);background:#dcf5e9}
+.diff-btn.active[data-diff="medium"]{border-color:var(--gold);color:var(--gold);background:#fdf0d5}
+.diff-btn.active[data-diff="difficult"]{border-color:var(--bad);color:var(--bad);background:#fde3e3}
+.gender-group{display:flex;gap:8px;margin-bottom:4px}
+.gender-btn{flex:1;padding:10px 6px;border-radius:8px;border:2px solid var(--line);background:var(--panel2);color:var(--dim);font:600 12px system-ui;cursor:pointer;text-align:center;transition:all .15s}
+.gender-btn:hover{border-color:var(--dim);color:var(--txt)}
+.gender-btn.active{border-color:var(--purple);color:var(--purple);background:#ede9fe}
+.mode-group{display:flex;gap:8px;margin-bottom:4px}
+.mode-btn{flex:1;padding:12px 8px;border-radius:8px;border:2px solid var(--line);background:var(--panel2);color:var(--dim);font:600 12px system-ui;cursor:pointer;text-align:center;transition:all .15s;line-height:1.5}
+.mode-btn:hover{border-color:var(--dim);color:var(--txt)}
+.mode-btn.active{border-color:var(--purple);color:var(--purple);background:#ede9fe}
+.train-desc{font-size:13px;color:var(--dim);line-height:1.7;min-height:60px}
+.train-persona-preview{font-size:12px;color:var(--txt);line-height:1.6;background:var(--panel2);border-radius:6px;padding:10px 12px;min-height:40px}
+.btn-start-train{width:100%;height:52px;font:800 15px system-ui;background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;border:none;border-radius:8px;cursor:pointer;letter-spacing:.5px;margin-top:16px}
+.btn-start-train:hover{filter:brightness(1.1)}
+.btn-start-train:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.train-cost-warn{font-size:11px;color:#92600a;margin-top:8px;padding:8px 10px;background:#fdf0d5;border-radius:6px;display:none}
+.btn-train-toggle{border-color:var(--purple)!important;color:var(--purple)!important}
+.btn-train-toggle.on{background:var(--purple)!important;color:#fff!important}
+/* Train chat input (text mode, shown in transcript col) */
+.train-input-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel);flex-shrink:0}
+.train-input-row input{flex:1;height:38px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:0 12px;font:14px system-ui}
+.train-input-row input:focus{outline:none;border-color:var(--purple)}
+.train-input-row input::placeholder{color:var(--dim)}
+.train-input-row button{height:38px;padding:0 16px;background:var(--purple);color:#fff;border:none;border-radius:8px;font:600 13px system-ui;cursor:pointer;white-space:nowrap}
+.train-input-row button:hover{filter:brightness(1.1)}
+.train-input-row button:disabled{opacity:.4;cursor:not-allowed;filter:none}
+
+/* ── My Progress / Rep Profile ────────────────────────────────────── */
+.grade-color-A{color:#0a7a4d}.grade-color-B{color:#2563eb}.grade-color-C{color:#b45309}
+.grade-color-D{color:#dc2626}.grade-color-F{color:#b91c1c}
+.score-bar{height:6px;border-radius:3px;background:var(--panel2);margin-top:4px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.profile-cat-row{padding:10px 12px;background:var(--panel2);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.profile-cat-label{flex:1;font-size:13px;font-weight:600}
+.profile-cat-score{font-size:20px;font-weight:800;min-width:40px;text-align:right}
+.profile-rule-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.profile-rule-row:last-child{border-bottom:none}
+.profile-rule-text{flex:1;color:var(--txt)}
+.profile-scores-table{width:100%;border-collapse:collapse;font-size:11px}
+.profile-scores-table th{color:var(--dim);text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+.profile-scores-table td{padding:4px 6px;border-top:1px solid var(--line)}
+/* ── Inbound callback banner ───────────────────────────────────────── */
+#inboundBanner{display:none;position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9999;
+  background:var(--panel);border:2px solid var(--good);border-radius:12px;box-shadow:0 8px 30px rgba(15,23,42,.18);
+  padding:14px 18px;min-width:340px;max-width:520px;animation:inboundPulse 1.2s ease-in-out infinite}
+#inboundBanner.show{display:block}
+@keyframes inboundPulse{0%,100%{box-shadow:0 8px 30px rgba(10,157,99,.25)}50%{box-shadow:0 8px 30px rgba(10,157,99,.55)}}
+#inboundBanner .ib-title{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--good);text-transform:uppercase;margin-bottom:4px}
+#inboundBanner .ib-from{font-size:20px;font-weight:700;color:var(--txt)}
+#inboundBanner .ib-ctx{font-size:13px;color:var(--dim);margin:4px 0 12px;line-height:1.4}
+#inboundBanner .ib-actions{display:flex;gap:10px}
+#inboundBanner .ib-btn{flex:1;padding:10px 0;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}
+#inboundAccept{background:var(--good);color:#fff}
+#inboundAccept:hover{filter:brightness(1.1)}
+#inboundReject{background:var(--panel2);color:var(--bad);border:1px solid var(--line)}
+#inboundReject:hover{background:#fde8e8}
+</style></head><body>
+<audio id="telnyxRemoteMedia" autoplay style="display:none"></audio>
+
+<!-- INBOUND CALLBACK BANNER — rings when a prospect redials a pool DID -->
+<div id="inboundBanner">
+  <div class="ib-title">📞 Incoming Callback</div>
+  <div class="ib-from" id="inboundFrom">Unknown number</div>
+  <div class="ib-ctx" id="inboundCtx">Looking up lead…</div>
+  <div class="ib-actions">
+    <button class="ib-btn" id="inboundAccept">✓ Accept</button>
+    <button class="ib-btn" id="inboundReject">✕ Decline</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SETUP VIEW — COCKPIT                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div id="setupView">
+  <div class="ck-topbar">
+    <span class="ck-brand">🎧 CELL COACH</span>
+    <select id="personaSelect" onchange="selectPersona(this.value)"></select>
+    <select id="playbookSelect" onchange="selectPlaybook(this.value)" title="Call mode — what this call is about"></select>
+    <button class="ghost-btn" onclick="openHistModal()">📋 Past Calls</button>
+    <button class="ghost-btn" onclick="openPersonaModal()">🎓 Coach Training</button>
+    <button class="ghost-btn btn-train-toggle" id="btnTrainMode" onclick="toggleTrainMode()">🤖 Train Mode</button>
+    <button class="ghost-btn" onclick="openProfileModal()">📊 My Progress</button>
+    <div class="ck-topbar-right">
+      <div id="statusPill" class="status-pill warn">keys missing</div>
+    </div>
+  </div>
+
+  <div id="setupError" class="setup-error">
+    <span id="setupErrorText"></span>
+    <span class="dismiss" onclick="hideSetupError()">×</span>
+  </div>
+
+  <div class="cockpit">
+
+    <!-- LEFT: Queue -->
+    <div class="queue-col">
+      <div class="q-source-row">
+        <select id="qSource" onchange="onSourceChange()"></select>
+        <button class="ghost-btn" onclick="document.getElementById('csvFile').click()" title="Import a CSV lead list (Targetron, Apollo, any export with a phone column)">⬆ CSV</button>
+        <button class="ghost-btn" id="btnDelList" onclick="deleteImport()" style="display:none" title="Delete this imported list">🗑</button>
+        <button class="ghost-btn" id="btnAutoDial" onclick="toggleAutoDial()" title="Autodial: after each disposition, auto-dials the next lead after a 3s wrap buffer">⚡ Auto</button>
+        <span class="ad-chip" id="sessionDials" title="Calls placed this session">0 dials</span>
+        <span class="ad-chip guard" id="dialGuardBadge" style="display:none" title="Test-mode dial guard: only allowlisted numbers can be dialed"></span>
+        <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none" onchange="importCsv(this)">
+      </div>
+      <div class="csv-drop" id="csvDrop"
+           onclick="document.getElementById('csvFile').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="dropCsv(event)">
+        📥 <b>Drop a CSV lead list here</b> — or click to browse<br>
+        <span style="font-size:11px">Targetron, Apollo, any export with a phone column</span>
+      </div>
+      <div class="csv-feedback" id="csvFeedback"></div>
+      <div class="q-manual-row active" id="qManualRow">⌨ Manual dial — type a number</div>
+      <div class="q-filter-row">
+        <input id="qSearch" placeholder="Search owner / address / phone">
+        <select id="qPlay" style="width:106px">
+          <option value="">All plays</option>
+          <option value="ABATEMENT">Abatement</option>
+          <option value="311">311</option>
+          <option value="STRUCTURE">Structure</option>
+          <option value="FIRE">Fire</option>
+          <option value="LAND_USE">Land Use</option>
+          <option value="STR">STR</option>
+          <option value="PERMIT">Permit</option>
+          <option value="FORECLOSURE">Foreclosure</option>
+          <option value="WATER">Water</option>
+          <option value="GENERAL">General</option>
+        </select>
+        <select id="qScore" style="width:68px">
+          <option value="">All</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MED</option>
+          <option value="LOW">LOW</option>
+        </select>
+      </div>
+      <div class="q-header" id="qHeader">CALL QUEUE · loading…</div>
+      <div class="queue-list" id="queueList"></div>
+    </div>
+
+    <!-- RIGHT: Call Setup -->
+    <div class="setup-col">
+
+      <div class="lead-banner" id="leadBanner">
+        <div class="lb-manual-label">Manual dial</div>
+        <div class="lb-phone-row">
+          <input id="dialNum" placeholder="e.g. 512-555-1234" onblur="checkPrep()">
+        </div>
+      </div>
+
+      <div class="recall-strip" id="prepRecall"></div>
+
+      <div class="val-strip" id="valuationStrip"></div>
+
+      <div class="ctx-grid">
+        <div class="ctx-cell span2">
+          <div class="ctx-label">Play</div>
+          <select id="play" onchange="onPlayChange()">
+            <option value="STR">STR (Short-Term Rental)</option>
+            <option value="LAND_USE">Land Use</option>
+            <option value="LAND_USE_COMMERCIAL">Land Use (Commercial)</option>
+            <option value="STRUCTURE">Structure</option>
+            <option value="ABATEMENT">Abatement</option>
+            <option value="PERMIT">Permit</option>
+            <option value="311">311 Complaint</option>
+            <option value="FIRE">Fire (crisis)</option>
+            <option value="WATER">Water Damage (crisis)</option>
+            <option value="FORECLOSURE">Foreclosure (crisis)</option>
+            <option value="GENERAL" selected>General</option>
+            <option value="CUSTOM">✦ Custom (any goal)</option>
+          </select>
+        </div>
+        <div class="ctx-cell span2">
+          <div class="ctx-label">Owner</div>
+          <input id="owner" placeholder="Marcus Thompson">
+        </div>
+        <div class="ctx-cell span2">
+          <div class="ctx-label">Case #</div>
+          <input id="caseId" placeholder="CE-2026-001234">
+        </div>
+        <div class="ctx-cell span2">
+          <div class="ctx-label">Address</div>
+          <input id="address" placeholder="1234 Main St">
+        </div>
+        <div class="ctx-cell span1">
+          <div class="ctx-label">Fee</div>
+          <input id="fee" placeholder="$500">
+        </div>
+        <div class="ctx-cell span3">
+          <div class="ctx-label">Notes</div>
+          <input id="notes" placeholder="extra context for the coach">
+        </div>
+      </div>
+
+      <!-- ── Custom Play Panel (hidden unless play=CUSTOM) ──────────────────── -->
+      <div id="customPanel" style="display:none; margin-top:12px; padding:14px 16px; background:var(--panel2,#eef1f5); border:1px solid var(--purple,#7c3aed); border-radius:10px;">
+        <div style="font-size:13px; font-weight:600; color:var(--purple,#7c3aed); margin-bottom:12px;">✦ Custom Play — tell the coach what you're working on</div>
+        <div class="ctx-grid">
+          <div class="ctx-cell span2">
+            <div class="ctx-label">Methodology</div>
+            <div style="display:flex; gap:10px; margin-top:4px;">
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;">
+                <input type="radio" name="cpMethod" id="cpMethodGuts" value="sean_direct" checked> GUTS
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;">
+                <input type="radio" name="cpMethod" id="cpMethodCardone" value="cardone"> Cardone
+              </label>
+            </div>
+          </div>
+          <div class="ctx-cell span2">
+            <div class="ctx-label">Register</div>
+            <select id="cpTone">
+              <option value="Professional" selected>Professional</option>
+              <option value="Warm">Warm</option>
+              <option value="Casual">Casual</option>
+            </select>
+          </div>
+          <div class="ctx-cell span4">
+            <div class="ctx-label">Who are you calling? <span style="color:var(--bad)">*</span></div>
+            <input id="cpWho" placeholder="a PE firm partner who sources distressed businesses">
+          </div>
+          <div class="ctx-cell span4">
+            <div class="ctx-label">Win for THIS call — what does a good outcome look like? <span style="color:var(--bad)">*</span></div>
+            <input id="cpGoal" placeholder="get them to send me their distressed-business leads">
+          </div>
+          <div class="ctx-cell span4">
+            <div class="ctx-label">Your angle — why should they care? (optional)</div>
+            <input id="cpAngle" placeholder="I bring clean off-market deals they don't have to dig for">
+          </div>
+          <div class="ctx-cell span4">
+            <div class="ctx-label">Likely pushback (optional — coach will pre-load a response)</div>
+            <input id="cpPushback" placeholder="we already have a sourcing team">
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-spacer"></div>
+
+      <div class="start-area">
+        <div class="autodial-bar" id="autoDialBar">
+          <span class="ad-text" id="autoDialText"></span>
+          <button class="ad-cancel" onclick="cancelAutoDial('manual')">✕ Stop (Esc)</button>
+        </div>
+        <div class="start-row">
+          <button class="btn-start" id="btnStart" onclick="start()">▶ START CALL</button>
+        </div>
+        <div class="start-hint" id="startHint">Call places from this browser over Twilio when you hit Start · use a headset</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Train Mode Panel (replaces cockpit when active) ──────── -->
+  <div id="trainSetup" style="display:none;flex:1;overflow:hidden;flex-direction:row" class="train-setup">
+
+    <!-- Left: picker -->
+    <div class="train-picker-col">
+      <div class="train-section">
+        <div class="train-section-title">Scenario</div>
+        <select id="trainScenarioSel" class="train-select" onchange="onTrainScenarioChange()">
+          <option value="">Loading…</option>
+        </select>
+
+        <div class="train-section-title">Difficulty</div>
+        <div class="diff-group">
+          <button class="diff-btn active" data-diff="easy" onclick="selectTrainDiff('easy')">Easy</button>
+          <button class="diff-btn" data-diff="medium" onclick="selectTrainDiff('medium')">Medium</button>
+          <button class="diff-btn" data-diff="difficult" onclick="selectTrainDiff('difficult')">Hard</button>
+        </div>
+
+        <div class="train-section-title" style="margin-top:14px">Prospect Gender</div>
+        <div class="gender-group">
+          <button class="gender-btn" data-gender="male" onclick="selectTrainGender('male')">Male</button>
+          <button class="gender-btn" data-gender="female" onclick="selectTrainGender('female')">Female</button>
+          <button class="gender-btn active" data-gender="random" onclick="selectTrainGender('random')">Random</button>
+        </div>
+
+        <div class="train-section-title" style="margin-top:14px">Mode</div>
+        <div class="mode-group">
+          <button class="mode-btn active" data-mode="text" onclick="selectTrainModeBtn('text')">
+            💬 Text<br><span style="font-weight:400;color:var(--dim);font-size:11px">~$0.02/session</span>
+          </button>
+          <button class="mode-btn" data-mode="voice" onclick="selectTrainModeBtn('voice')">
+            🎙 Voice<br><span style="font-weight:400;color:var(--dim);font-size:11px">~$0.80/10 min</span>
+          </button>
+        </div>
+        <div id="trainCostWarn" class="train-cost-warn">
+          ⚠ Requires <code>elevenlabs_key</code> + <code>elevenlabs_agent_id</code> in cc_config.json and an ElevenLabs agent with overrides enabled.
+        </div>
+
+        <button id="btnStartTraining" class="btn-start-train" onclick="startTraining()">💬 Start Text Training</button>
+      </div>
+    </div>
+
+    <!-- Right: info -->
+    <div class="train-info-col">
+      <div class="train-section">
+        <div class="train-section-title">About This Scenario</div>
+        <div id="trainDesc" class="train-desc">Select a scenario to see details.</div>
+      </div>
+      <div class="train-section">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="train-section-title" style="margin-bottom:0">Prospect Character</div>
+          <button type="button" onclick="rerollTrainCharacter()" style="background:none;border:1px solid var(--line);border-radius:6px;color:var(--dim);font:11px inherit;padding:4px 8px;cursor:pointer">🎲 Reroll</button>
+        </div>
+        <div id="trainCharacter" class="train-persona-preview" style="color:var(--purple);margin-top:8px">—</div>
+      </div>
+      <div class="train-section">
+        <div class="train-section-title">Prospect Opening Line</div>
+        <div id="trainFirstMsg" class="train-persona-preview" style="color:var(--gold)">—</div>
+      </div>
+      <div class="train-section" style="background:var(--panel2);border-color:var(--panel2)">
+        <div class="train-section-title">How This Trains The Coach</div>
+        <div style="font-size:12px;color:var(--dim);line-height:1.8">
+          <b style="color:var(--txt)">Text mode:</b> An LLM plays the prospect at the selected difficulty. You type rep lines, the AI responds, and the G.U.T.S. coach analyzes every exchange in real time. Run dozens of scenario variations cheaply to find where the coach gives weak advice.<br><br>
+          <b style="color:var(--txt)">Voice mode:</b> ElevenLabs AI talks back to you through your speakers. You respond out loud. Transcription + coaching runs identically to a live call — tests the coach under real timing pressure and interruptions.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Coach Training modal (full persona management) ─────────────── -->
+<div class="modal-bg" id="personaModal" onclick="if(event.target===this)closePersonaModal()">
+  <div class="modal">
+    <div class="modal-h">Coach Training <button class="modal-close" onclick="closePersonaModal()">×</button></div>
+    <div class="modal-note">
+      The coach's doctrine is yours to shape — philosophy, tone, rules, and the situational tactic
+      matrix that decides <b>which</b> tactic to use <b>when</b>. The output format and safety rails
+      (short SAY THIS lines, no invented facts, crisis-victim protection) live in a fixed harness
+      the coach can never break. The <code>{rep_identity}</code> placeholder becomes your name/company.
+    </div>
+    <div id="personaItemList" style="margin-bottom:6px"></div>
+    <span class="modal-lbl">Persona name</span>
+    <input id="personaName" placeholder="e.g. Claude Diamond — G.U.T.S.">
+    <span class="modal-lbl">Short description (shown in the persona list)</span>
+    <input id="personaDesc" placeholder="e.g. Listen-first GUTS doctrine, tough-critic debrief">
+
+    <div id="personaStructured">
+      <span class="modal-lbl">Identity — who the rep is on every call</span>
+      <textarea id="personaIdentity" class="short" rows="2" placeholder="e.g. the rep is {rep_identity} — an independent agency, never the city…"></textarea>
+      <span class="modal-lbl">Philosophy — the methodology core</span>
+      <textarea id="personaPhilosophy" class="short" rows="4"></textarea>
+      <span class="modal-lbl">Tone & voice rules</span>
+      <textarea id="personaTone" class="short" rows="3"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><span class="modal-lbl">Default posture</span>
+          <select id="personaPosture" class="sel">
+            <option value="listener">listener (default — ask, don't pitch)</option>
+            <option value="balanced">balanced</option>
+            <option value="driver">driver (high-pressure)</option>
+          </select></div>
+        <div><span class="modal-lbl">Debrief style</span>
+          <select id="personaDebrief" class="sel">
+            <option value="tough_critic">tough critic (zero yes-man)</option>
+            <option value="balanced">balanced</option>
+            <option value="encouraging">encouraging</option>
+          </select></div>
+      </div>
+      <span class="modal-lbl">Authority moments — when the rep may lead with weight (one per line)</span>
+      <textarea id="personaAuthority" class="short" rows="3"></textarea>
+      <span class="modal-lbl">Core rules — hard doctrine, never broken (one per line)</span>
+      <textarea id="personaRules" class="short" rows="6"></textarea>
+      <span class="modal-lbl">Situational tactic matrix — when the prospect is in STATE during PHASE, coach from POSTURE</span>
+      <div id="tacticRows"></div>
+      <button class="mbtn-secondary" style="margin-top:4px" onclick="addTacticRow()">＋ Add tactic row</button>
+      <div style="margin-top:10px"><button class="mbtn-secondary" onclick="convertToRaw()">⚙ Switch to raw text editing</button></div>
+    </div>
+
+    <div id="personaRawWrap" style="display:none">
+      <span class="modal-lbl">Raw training text (replaces the structured doctrine for this persona)</span>
+      <textarea id="personaPrompt" placeholder="Describe how the coach should think, sound, and structure calls — rules, steps, plays, tone, objection handling."></textarea>
+      <div id="rawConvertNote" style="font-size:11px;color:var(--gold);margin-top:6px;display:none">
+        Saving now will replace this persona's structured doctrine with this raw text.</div>
+    </div>
+
+    <div class="modal-btn-row">
+      <button class="mbtn-primary" id="btnSaveChanges" onclick="saveEditedPersona()">💾 Save changes</button>
+      <button class="mbtn-secondary" onclick="saveAsNewPersona()">＋ Save as new</button>
+      <button class="mbtn-secondary" id="btnResetPersona" onclick="resetPersona()" style="display:none">↺ Restore default</button>
+      <button class="mbtn-danger" id="btnDeletePersona" onclick="deleteEditingPersona()" style="display:none">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── History modal ─────────────────────────────────────────────── -->
+<div class="modal-bg" id="histModal" onclick="if(event.target===this)closeHistModal()">
+  <div class="modal">
+    <div class="modal-h">Past Calls <button class="modal-close" onclick="closeHistModal()">×</button></div>
+    <div id="histList"></div>
+  </div>
+</div>
+
+<!-- ── CSV import: step 2 — confirm column mapping ────────────────── -->
+<div class="modal-bg" id="csvMapModal" onclick="if(event.target===this)closeCsvMapModal()">
+  <div class="modal">
+    <div class="modal-h">Import leads — confirm columns <button class="modal-close" onclick="closeCsvMapModal()">×</button></div>
+    <div class="modal-note" id="csvMapNote"></div>
+    <div class="csv-map-row"><label>📞 Phone *</label><select id="csvMapPhone"></select></div>
+    <div class="csv-map-row"><label>👤 Owner name</label><select id="csvMapOwner"></select></div>
+    <div class="csv-map-row"><label>🏠 Property address</label><select id="csvMapAddress"></select></div>
+    <div class="csv-map-row"><label>💵 Value</label><select id="csvMapValue"></select></div>
+    <div class="csv-map-row"><label>📝 Notes</label><select id="csvMapNotes"></select></div>
+    <div class="csv-preview" id="csvMapPreview"></div>
+    <div class="modal-btn-row">
+      <button class="mbtn-primary" id="btnCsvConfirm" onclick="confirmCsvImport()">✔ Import leads</button>
+      <button class="mbtn-secondary" onclick="closeCsvMapModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── My Progress modal ─────────────────────────────────────────── -->
+<div class="modal-bg" id="profileModal" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal" style="width:740px;max-width:95vw">
+    <div class="modal-h">📊 My Progress <button class="modal-close" onclick="closeProfileModal()">×</button></div>
+
+    <!-- Stats row -->
+    <div style="display:flex;gap:20px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:16px">
+      <div style="text-align:center;flex-shrink:0">
+        <div id="profileGrade" style="font-size:56px;font-weight:800;line-height:1;color:var(--dim)">—</div>
+        <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:2px">Overall</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Last 5 sessions</div>
+        <div id="profileGrades5" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div id="profileCount" style="font-size:11px;color:var(--dim);margin-top:8px">—</div>
+      </div>
+      <div style="flex-shrink:0">
+        <button class="mbtn-secondary" onclick="backfillScores()" style="font-size:11px">⟳ Score past sessions</button>
+      </div>
+    </div>
+
+    <!-- Weak areas -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;color:var(--bad);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Weak Areas <span style="color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0">(click × to dismiss)</span></div>
+      <div id="profileWeak"></div>
+    </div>
+
+    <!-- Strong areas -->
+    <div id="profileStrongWrap" style="margin-bottom:16px;display:none">
+      <div style="font-size:10px;font-weight:700;color:var(--good);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Strong Areas</div>
+      <div id="profileStrong"></div>
+    </div>
+
+    <!-- Custom coaching rules -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">My Coaching Rules</div>
+      <div class="modal-note">Write rules in plain English. The coach follows these on every call — training and live.<br>
+        Examples: <i>"Always push contractor-referral on fire damage"</i> · <i>"Remind me to slow down before objection handling"</i> · <i>"Never suggest lowball framing"</i></div>
+      <div id="profileRulesList" style="margin:8px 0"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="profileNewRule" placeholder="Add a coaching rule…"
+          style="flex:1;height:34px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:0 10px;font:13px system-ui"
+          onkeydown="if(event.key==='Enter')addProfileRule()">
+        <button class="mbtn-secondary" onclick="addProfileRule()">＋ Add</button>
+        <button class="mbtn-primary" onclick="saveProfileRules()">💾 Save rules</button>
+      </div>
+    </div>
+
+    <!-- Session scores table -->
+    <div>
+      <div style="font-size:10px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Recent Sessions</div>
+      <div id="profileScores" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- LIVE VIEW                                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div id="liveView" class="live-wrap">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="live-dot"></div>
+      <span style="font-weight:700;color:var(--bad);font-size:15px">LIVE</span>
+      <span id="streamPill" class="status-pill" style="display:none"></span>
+      <span id="recDot" class="rec-dot">● REC</span>
+      <span id="micMeter" style="display:none;align-items:center;gap:5px;font-size:10px;color:var(--dim);font-weight:700">MIC <span style="width:46px;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;display:inline-block"><span id="micMeterFill" style="display:block;height:100%;width:0%;background:#3fb950"></span></span></span>
+      <div id="twilioControls" class="twilio-controls" style="display:none">
+        <button class="btn-mute" id="btnMute" onclick="toggleMute()">Mute</button>
+        <button class="btn-hangup" onclick="hangupCall()">Hang Up</button>
+      </div>
+      <button id="btnEndTraining" class="btn-hangup" style="display:none;border-radius:8px;padding:6px 14px;font:inherit;font-weight:600;font-size:12px;cursor:pointer;border:none" onclick="stopCall()">⏹ End Training</button>
+    </div>
+    <div id="liveInfo" style="font-size:14px;font-weight:600;flex:1;text-align:center"></div>
+    <div id="liveTimer" class="timer">00:00</div>
+  </div>
+
+  <div class="live-main">
+    <div class="transcript-col">
+      <div class="head">Transcript</div>
+      <div class="messages" id="transcriptBox">
+        <div class="waiting" id="transcriptWaiting">Waiting for audio&#x2026;</div>
+      </div>
+      <div id="voiceStallBar" style="display:none;margin:6px 10px;padding:10px 12px;border:1px solid var(--gold);border-radius:8px;background:rgba(210,153,34,.12);color:var(--gold);font-size:12px;font-weight:600;align-items:center;gap:10px;justify-content:space-between">
+        <span id="voiceStallMsg"></span>
+        <button onclick="reconnectVoiceTrain()" style="background:var(--gold);color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Reconnect voice</button>
+      </div>
+      <div id="trainInputRow" class="train-input-row" style="display:none">
+        <input id="trainInput" placeholder="Type your rep line and press Enter…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTrainChat();}">
+        <button id="btnTrainSend" onclick="sendTrainChat()">Send →</button>
+      </div>
+    </div>
+    <div class="coach-col">
+      <div class="head">AI Coach</div>
+      <div id="sayCard" class="say-card">
+        <div id="objLine" class="obj-line"></div>
+        <div id="contextLine" class="context-line"></div>
+        <div id="coachBadge" class="coach-badge"></div>
+        <div class="say-label">SAY THIS</div>
+        <div class="say-words" id="sayWords"></div>
+        <div id="altToggle" class="alt-toggle" style="display:none" onclick="toggleAlt()"></div>
+      </div>
+      <button id="btnFalseStart" class="ghost-btn" style="width:100%;margin-bottom:2px;color:var(--gold);border-color:var(--gold)" onclick="resetStaircase()">🔄 False start — real person just picked up</button>
+      <div class="checklist-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:0">Call Progress</label>
+          <span id="ckCount" style="font-size:11px;color:var(--dim)">0/4</span>
+        </div>
+        <div class="ck-progress"><div class="fill" id="ckFill" style="width:0%"></div></div>
+        <div id="ckList"></div>
+      </div>
+      <div id="intelCard" class="intel-card" style="display:none">
+        <div class="label">Prospect Intel <span id="intelTemp" class="intel-temp"></span></div>
+        <div id="intelRows"></div>
+      </div>
+      <div id="coachWaiting" class="coach-waiting">Waiting for prospect to speak&#x2026;</div>
+    </div>
+  </div>
+
+  <div id="dispoBar" class="dispo-bar show">
+    <div class="dispo-grid">
+      <button class="dispo-btn paid" onclick="dispo('paid')">💰 Paid<kbd>1</kbd></button>
+      <button class="dispo-btn followup" onclick="dispo('followup')">📅 Follow-up<kbd>2</kbd></button>
+      <button class="dispo-btn notint" onclick="dispo('not_interested')">✗ Not Int.<kbd>3</kbd></button>
+      <button class="dispo-btn noans" onclick="dispo('no_answer')">📵 No Ans.<kbd>4</kbd></button>
+      <button class="dispo-btn bad" onclick="dispo('bad_number')">🔴 Bad #<kbd>5</kbd></button>
+      <button class="dispo-btn bad" onclick="dispo('dnc')" title="Do Not Call — permanently scrubs this number from every queue">🚫 DNC<kbd>6</kbd></button>
+    </div>
+    <div class="dispo-controls">
+      <button onclick="stopCall()">⏹ Stop Coaching</button>
+      <div id="fuRow" class="fu-row" style="flex:1">
+        <input type="date" id="fuDate" style="padding:8px">
+        <button onclick="submitFollowUp()" style="margin-top:4px;width:100%;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:8px;font:inherit;cursor:pointer;font-weight:600">Confirm Follow-up</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ── Visible error surfacing — nothing fails silently anymore ─────── */
+function showSetupError(msg){
+  console.error('[cellcoach]', msg);
+  const e = $('setupError');
+  if(e){ $('setupErrorText').textContent = '⚠ ' + msg; e.classList.add('show'); }
+}
+function hideSetupError(){ const e=$('setupError'); if(e) e.classList.remove('show'); }
+window.addEventListener('error', ev => showSetupError('JS error: '+ev.message+' ('+(ev.filename||'').split('/').pop()+':'+ev.lineno+')'));
+window.addEventListener('unhandledrejection', ev => showSetupError('JS error: '+((ev.reason&&ev.reason.message)||ev.reason)));
+
+/* ── Call method: Twilio WebRTC only. Phone Link was removed — there is
+   no provider selection anymore; the rep never has to think about it. ── */
+let callMethod = 'twilio';
+let twilioReady = false;
+
+/* ── Lead sources ─────────────────────────────────────────────────── */
+let sourceList = [];
+let currentSource = '';
+
+async function loadSources(){
+  try{
+    const r = await (await fetch('/api/sources')).json();
+    sourceList = r.sources || [];
+  }catch(e){ sourceList = []; }
+  const sel = $('qSource');
+  if(!sourceList.length){
+    sel.innerHTML = '<option value="">No sources — import a CSV</option>';
+    currentSource = '';
+    loadQueue();
+    return;
+  }
+  let saved = '';
+  try{ saved = localStorage.getItem('cc_source') || ''; }catch(e){}
+  if(!saved || !sourceList.some(s => s.id === saved && s.available)){
+    const firstOk = sourceList.find(s => s.available);
+    saved = firstOk ? firstOk.id : '';
+  }
+  currentSource = saved;
+  sel.innerHTML = sourceList.map(s =>
+    '<option value="'+esc(s.id)+'"'+(s.id===currentSource?' selected':'')+(s.available?'':' disabled')+'>'+
+    (s.type==='csv'?'📄 ':'🗄 ')+esc(s.name)+' ('+(s.available?s.count:'not found')+')</option>'
+  ).join('');
+  $('btnDelList').style.display = currentSource.startsWith('csv:') ? 'inline-block' : 'none';
+  loadQueue();
+}
+
+function onSourceChange(){
+  currentSource = $('qSource').value;
+  try{localStorage.setItem('cc_source', currentSource);}catch(e){}
+  $('btnDelList').style.display = currentSource.startsWith('csv:') ? 'inline-block' : 'none';
+  loadQueue();
+}
+
+/* ── CSV import: 2-step flow (drop/pick → confirm mapping → ingest) ─ */
+let pendingCsv = null;  // {name, text, headers, sample, rowCount}
+
+function importCsv(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(file) startCsvImport(file);
+}
+function dropCsv(ev){
+  ev.preventDefault();
+  $('csvDrop').classList.remove('drag');
+  const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+  if(!file) return;
+  if(!/\.csv$/i.test(file.name) && !/csv|text/.test(file.type)){
+    csvFeedback('err','That file is not a CSV — export your list as .csv and try again.');
+    return;
+  }
+  startCsvImport(file);
+}
+function csvFeedback(kind, msg){
+  const el = $('csvFeedback');
+  el.className = 'csv-feedback show ' + kind;
+  el.textContent = msg;
+  clearTimeout(csvFeedback._t);
+  csvFeedback._t = setTimeout(()=>{ el.classList.remove('show'); }, kind==='ok'?9000:12000);
+}
+async function startCsvImport(file){
+  csvFeedback('ok','Reading '+file.name+'…');
+  const text = await file.text();
+  let r;
+  try{
+    r = await (await fetch('/api/import_csv',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:file.name, csv_text:text, preview:true})})).json();
+  }catch(e){ csvFeedback('err','Import failed — is the server running?'); return; }
+  if(r.error){ csvFeedback('err',r.error); return; }
+  pendingCsv = {name:file.name, text:text, rowCount:r.row_count};
+  openCsvMapModal(r);
+}
+function _fillCsvMapSelect(id, headers, autoVal){
+  const sel = $(id);
+  sel.innerHTML = '<option value="">(none)</option>' +
+    headers.map(h=>'<option value="'+esc(h)+'"'+(h.toLowerCase()===autoVal?' selected':'')+'>'+esc(h)+'</option>').join('');
+}
+function openCsvMapModal(p){
+  const heads = p.headers || [];
+  const auto = p.auto || {};
+  _fillCsvMapSelect('csvMapPhone',   heads, (auto.phone||'').toLowerCase());
+  _fillCsvMapSelect('csvMapOwner',   heads, (auto.owner||'').toLowerCase().split('+')[0]);
+  _fillCsvMapSelect('csvMapAddress', heads, (auto.address||'').toLowerCase());
+  _fillCsvMapSelect('csvMapValue',   heads, (auto.value||'').toLowerCase());
+  _fillCsvMapSelect('csvMapNotes',   heads, (auto.notes||'').toLowerCase());
+  $('csvMapNote').innerHTML = '<b>'+esc(pendingCsv.name)+'</b> — '+p.row_count+' data rows found. '+
+    'We guessed the columns below; fix anything that looks off, then import.';
+  $('csvMapPreview').textContent = (p.sample||[]).map(r=>r.slice(0,6).join(' | ')).join('\n');
+  $('btnCsvConfirm').disabled = false;
+  $('btnCsvConfirm').textContent = '✔ Import leads';
+  $('csvMapModal').classList.add('show');
+}
+function closeCsvMapModal(){ $('csvMapModal').classList.remove('show'); pendingCsv = null; }
+async function confirmCsvImport(){
+  if(!pendingCsv) return;
+  const mapping = {phone:$('csvMapPhone').value, owner:$('csvMapOwner').value,
+                   address:$('csvMapAddress').value, value:$('csvMapValue').value,
+                   notes:$('csvMapNotes').value};
+  if(!mapping.phone){
+    $('csvMapNote').innerHTML = '<b style="color:var(--bad)">Pick a Phone column — it is required.</b>';
+    return;
+  }
+  $('btnCsvConfirm').disabled = true;
+  $('btnCsvConfirm').textContent = '⏳ Importing…';
+  const payload = {name:pendingCsv.name, csv_text:pendingCsv.text, mapping:mapping};
+  let r;
+  try{
+    r = await (await fetch('/api/import_csv',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)})).json();
+  }catch(e){
+    $('btnCsvConfirm').disabled = false; $('btnCsvConfirm').textContent = '✔ Import leads';
+    csvFeedback('err','Import failed — is the server running?'); return;
+  }
+  $('csvMapModal').classList.remove('show');
+  pendingCsv = null;
+  if(r.error){ csvFeedback('err',r.error); return; }
+  csvFeedback('ok','✔ '+r.imported+' leads ingested into active queue'+(r.skipped?' · '+r.skipped+' rows skipped (no phone)':'')+' — list: "'+r.source+'"');
+  try{localStorage.setItem('cc_source','csv:'+r.source);}catch(e){}
+  await loadSources();
+}
+
+async function deleteImport(){
+  if(!currentSource.startsWith('csv:')) return;
+  const name = currentSource.slice(4);
+  if(!confirm('Delete imported list "'+name+'"? (Does not affect call history)')) return;
+  try{
+    await fetch('/api/import_delete',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({source:name})});
+    try{localStorage.removeItem('cc_source');}catch(e){}
+    await loadSources();
+  }catch(e){ showSetupError('Delete failed — is the server running?'); }
+}
+
+/* ── Queue state ──────────────────────────────────────────────────── */
+let Q = {leads:[], filtered:[], selected:-1, manual:true, scrubbed:0};
+
+async function loadQueue(){
+  $('qHeader').textContent = 'CALL QUEUE · loading…';
+  if(!currentSource){
+    Q.leads = []; Q.scrubbed = 0; applyFilters(); selectManual();
+    $('qHeader').textContent = 'NO SOURCE — manual dial or import a CSV';
+    return;
+  }
+  try{
+    const r = await (await fetch('/api/queue?source='+encodeURIComponent(currentSource))).json();
+    if(r.available && r.leads && r.leads.length){
+      Q.leads = r.leads;
+      Q.scrubbed = r.scrubbed_institutional || 0;
+      applyFilters();
+      selectLead(0);
+    } else {
+      Q.leads = []; Q.scrubbed = r.scrubbed_institutional || 0; applyFilters(); selectManual();
+      $('qHeader').textContent = r.error ? ('SOURCE ERROR — see below') : 'CALL QUEUE · 0 leads';
+      if(r.error) showSetupError('Lead source problem: '+r.error);
+    }
+  }catch(e){
+    Q.leads = []; Q.scrubbed = 0; applyFilters(); selectManual();
+    $('qHeader').textContent = 'QUEUE UNAVAILABLE — manual dial only';
+  }
+}
+
+function applyFilters(){
+  const s = (($('qSearch')||{}).value || '').toLowerCase();
+  const pl = ($('qPlay')||{}).value || '';
+  const sc = ($('qScore')||{}).value || '';
+  Q.filtered = Q.leads.filter(l => {
+    if(s && !((l.owner||'').toLowerCase().includes(s)||(l.address||'').toLowerCase().includes(s)||(l.phone||'').includes(s))) return false;
+    if(pl && (l.play||'').toUpperCase() !== pl) return false;
+    if(sc && (l.score||'').toUpperCase() !== sc) return false;
+    return true;
+  });
+  renderQueue();
+}
+
+function renderQueue(){
+  const box = $('queueList');
+  $('qHeader').textContent = 'CALL QUEUE · ' + Q.filtered.length + ' leads' +
+    (Q.scrubbed ? ' · 🏛 ' + Q.scrubbed + ' institutional scrubbed' : '');
+  if(!Q.filtered.length){
+    box.innerHTML = '<div class="q-empty">No leads match filters</div>';
+    syncSelectionUI();
+    return;
+  }
+  box.innerHTML = Q.filtered.map((l,i) => {
+    const playCls = 'play-'+(l.play||'general').toLowerCase().replace(/[^a-z0-9]/g,'_');
+    const scoreCls = 'score-'+(l.score||'').toLowerCase();
+    const callMark = l.call_count > 0 ? '<span class="q-call-badge">↻'+l.call_count+'</span>' : '';
+    const reasonLabels = {callback_due:'📞 CALLBACK', touch_cadence_due:'⏰ DUE AGAIN',
+                          hot_untouched:'🔥 HOT', new_today_with_phone:'🆕 NEW TODAY'};
+    const reasonMark = reasonLabels[l.reason] ?
+      '<span class="q-reason-badge reason-'+l.reason+'">'+reasonLabels[l.reason]+'</span>' : '';
+    return '<div class="q-row" data-idx="'+i+'">'+
+      '<div class="q-row-top">'+
+        '<span class="q-owner">'+esc(l.owner||'(no name)')+'</span>'+
+        '<span class="q-play-badge '+playCls+'">'+esc(l.play||'')+'</span>'+
+        reasonMark+
+        '<span class="q-score-dot '+scoreCls+'"></span>'+
+      '</div>'+
+      '<div class="q-row-sub">'+esc(l.phone||'')+callMark+' · '+esc(l.address||'')+'</div>'+
+    '</div>';
+  }).join('');
+  syncSelectionUI();
+}
+
+/* One place decides what looks selected — kills the stuck-highlight bug */
+function syncSelectionUI(){
+  $('qManualRow').classList.toggle('active', Q.manual);
+  document.querySelectorAll('#queueList .q-row').forEach(el => {
+    el.classList.toggle('active', !Q.manual && parseInt(el.dataset.idx,10) === Q.selected);
+  });
+}
+
+function selectLead(i){
+  cancelAutoDial('select');
+  const l = Q.filtered[i];
+  if(!l) return;
+  Q.selected = i; Q.manual = false;
+  renderBanner(l);
+  const pl = $('play');
+  if(pl){
+    const v = (l.play||'GENERAL').toUpperCase();
+    pl.value = Array.from(pl.options).some(o=>o.value===v) ? v : 'GENERAL';
+  }
+  $('owner').value = l.owner||'';
+  $('address').value = (l.address||'')+(l.zip?' '+l.zip:'');
+  $('caseId').value = l.case_id||'';
+  S.leadIntel = {signals: l.signals||[], signal_count: l.signal_count||0, severity: l.severity||'', valuation: null};
+  fetchValuation(l);
+  syncSelectionUI();
+  checkPrep();
+}
+
+function selectManual(){
+  cancelAutoDial('manual');
+  Q.manual = true; Q.selected = -1;
+  renderBanner(null);
+  $('owner').value=''; $('address').value=''; $('caseId').value='';
+  $('play').value='GENERAL';
+  S.leadIntel = null;
+  renderValuation(null);
+  $('prepRecall').classList.remove('show');
+  syncSelectionUI();
+}
+
+/* ── BRIEF-state valuation (Phase 3: ARV + MAO before the call) ───── */
+function _fmtMoney(n){
+  if(n == null) return '—';
+  return '$' + Math.round(n).toLocaleString();
+}
+
+async function fetchValuation(l){
+  const strip = $('valuationStrip');
+  if(!l || !(l.address||'').trim()){ renderValuation(null); return; }
+  strip.className = 'val-strip show';
+  strip.innerHTML = '<span class="val-note">Pulling valuation…</span>';
+  try{
+    const qs = new URLSearchParams({address: l.address||'', zip: l.zip||'',
+      signals: (l.signals||[]).join(',')});
+    const v = await (await fetch('/api/valuation?'+qs)).json();
+    if(S.leadIntel) S.leadIntel.valuation = v.available ? v : null;
+    renderValuation(v);
+  }catch(e){
+    strip.className = 'val-strip';
+    strip.innerHTML = '';
+  }
+}
+
+function renderValuation(v){
+  const strip = $('valuationStrip');
+  if(!v){ strip.className = 'val-strip'; strip.innerHTML = ''; return; }
+  if(!v.available){
+    strip.className = 'val-strip show';
+    strip.innerHTML = '<span class="val-note">No valuation on record — run the conversation on their answers only.</span>';
+    return;
+  }
+  strip.className = 'val-strip show';
+  strip.innerHTML =
+    '<div class="val-item"><span class="val-k">ARV</span><span class="val-v">'+_fmtMoney(v.arv)+'</span></div>'+
+    '<div class="val-item"><span class="val-k">Est. repairs</span><span class="val-v">'+_fmtMoney(v.est_repairs)+'</span></div>'+
+    '<div class="val-item"><span class="val-k">MAO</span><span class="val-v hot">'+_fmtMoney(v.mao)+'</span></div>'+
+    '<div class="val-item"><span class="val-k">Offer range</span><span class="val-v hot">'+_fmtMoney(v.offer_low)+' – '+_fmtMoney(v.offer_high)+'</span></div>'+
+    (v.equity_band?'<span class="val-band">'+esc(v.equity_band)+' equity</span>':'')+
+    (v.occupancy?'<span class="val-band">'+esc(v.occupancy.replace('_',' '))+'</span>':'')+
+    '<span class="val-note">Let THEM name the first number'+(v.cached?' · cached':' · '+esc(v.source||''))+'</span>';
+}
+
+function renderBanner(l){
+  const banner = $('leadBanner');
+  if(!l){
+    banner.innerHTML =
+      '<div class="lb-manual-label">Manual dial</div>'+
+      '<div class="lb-phone-row"><input id="dialNum" placeholder="e.g. 512-555-1234" onblur="checkPrep()"></div>';
+    return;
+  }
+  const playCls = 'play-'+(l.play||'general').toLowerCase().replace(/[^a-z0-9]/g,'_');
+  const sc = (l.score||'').toUpperCase();
+  const callInfo = l.call_count>0 ? ' · ↻ called '+l.call_count+'x, last: '+esc(l.last_disposition) : '';
+  banner.innerHTML =
+    '<div class="lb-row1">'+
+      '<span class="lb-owner">'+esc(l.owner||'(unknown)')+'</span>'+
+      '<span class="lb-badges">'+
+        (l.play?'<span class="play-badge '+playCls+'">'+esc(l.play)+'</span>':'')+
+        (sc?'<span class="score-chip '+sc+'">'+esc(sc)+'</span>':'')+
+        (l.severity?'<span class="score-chip '+esc(l.severity)+'" title="Signal-stack severity">'+esc(l.severity)+(l.signal_count>1?' ×'+l.signal_count:'')+'</span>':'')+
+      '</span>'+
+    '</div>'+
+    '<div class="lb-phone-row"><input id="dialNum" value="'+esc(l.phone||'')+'" onblur="checkPrep()"></div>'+
+    '<div class="lb-meta">'+esc(l.address||'')+(l.zip?' '+esc(l.zip):'')+(l.case_id?' · '+esc(l.case_id):'')+'</div>'+
+    '<div class="lb-detail">'+esc(l.description||'')+(l.opened?' · '+esc(l.opened):'')+(l.prop_value?' · '+esc(l.prop_value):'')+(l.portfolio_n?' · '+l.portfolio_n+' prop'+(l.portfolio_n>1?'s':''):'')+callInfo+'</div>';
+}
+
+function advanceQueue(){
+  if(Q.manual) return;
+  const next = Q.selected + 1;
+  if(next < Q.filtered.length) selectLead(next);
+  else selectManual();
+}
+
+/* ── Coach personas ───────────────────────────────────────────────── */
+let personaId = 'guts_diamond';
+let personaList = [];
+let editingPersonaId = null;
+
+async function loadPersonas(){
+  try{
+    const r = await (await fetch('/api/personas')).json();
+    personaList = r.personas || [];
+    try{
+      const saved = localStorage.getItem('cc_persona');
+      if(saved && personaList.some(p => p.id === saved)) personaId = saved;
+    }catch(e){}
+    renderPersonaList();
+  }catch(e){ console.error('[personas] load failed', e); }
+}
+
+function renderPersonaList(){
+  const sel = $('personaSelect');
+  if(sel){
+    sel.innerHTML = personaList.map(p =>
+      '<option value="'+esc(p.id)+'"'+(p.id===personaId?' selected':'')+'>'+esc(p.name)+'</option>'
+    ).join('');
+  }
+  const box = $('personaItemList');
+  if(box){
+    box.innerHTML = personaList.length ? personaList.map(p =>
+      '<div class="persona-item'+(p.id===editingPersonaId?' editing':'')+'">'+
+        '<span class="pi-name" onclick="editPersona(\''+esc(p.id)+'\')">'+esc(p.name)+'</span>'+
+        (p.built_in?'<span class="pi-tag">built-in · fully editable</span>':'<span class="pi-tag">custom</span>')+
+        (p.id===personaId?'<span class="pi-tag" style="color:var(--acc)">● active</span>':'')+
+      '</div>'
+    ).join('') : '<div style="color:var(--dim);font-size:12px">No personas found</div>';
+  }
+}
+
+function selectPersona(id){
+  personaId = id;
+  try{localStorage.setItem('cc_persona', id);}catch(e){}
+  renderPersonaList();
+}
+
+/* ── Playbooks (call mode — WHAT this call is about) ──────────────── */
+let playbookId = 'permits';
+let playbookList = [];
+
+async function loadPlaybooks(){
+  try{
+    const r = await (await fetch('/api/playbooks')).json();
+    playbookList = r.playbooks || [];
+    try{
+      const saved = localStorage.getItem('cc_playbook');
+      if(saved && playbookList.some(p => p.id === saved)) playbookId = saved;
+    }catch(e){}
+    renderPlaybookSelect();
+  }catch(e){ console.error('[playbooks] load failed', e); }
+}
+
+function renderPlaybookSelect(){
+  const sel = $('playbookSelect');
+  if(!sel) return;
+  sel.innerHTML = playbookList.map(p =>
+    '<option value="'+esc(p.id)+'"'+(p.id===playbookId?' selected':'')+'>'+
+    esc(p.name)+(p.stub?' (stub)':'')+'</option>'
+  ).join('');
+}
+
+function selectPlaybook(id){
+  playbookId = id;
+  try{localStorage.setItem('cc_playbook', id);}catch(e){}
+}
+
+/* ── Coach Training modal ─────────────────────────────────────────── */
+function openPersonaModal(){
+  editPersona(personaId);
+  $('personaModal').classList.add('show');
+}
+function closePersonaModal(){ $('personaModal').classList.remove('show'); }
+
+let personaRawMode = false;
+
+const TM_PHASES = ['any','opener','discovery','pain_press','bridge','objection','close'];
+const TM_STATES = ['any','guarded','rushing','opening','engaged','skeptical','angry','stalling'];
+const TM_POSTURES = ['listener','confused_helper','authority','closer'];
+
+function editPersona(id){
+  const p = personaList.find(x => x.id === id);
+  if(!p) return;
+  editingPersonaId = id;
+  personaRawMode = !p.doctrine;   // doctrine-less records edit as raw text
+  $('personaName').value = p.name || '';
+  $('personaDesc').value = p.description || '';
+  $('btnResetPersona').style.display = p.built_in ? 'inline-block' : 'none';
+  $('btnDeletePersona').style.display = p.built_in ? 'none' : 'inline-block';
+  $('rawConvertNote').style.display = 'none';
+  if(p.doctrine){
+    $('personaStructured').style.display = 'block';
+    $('personaRawWrap').style.display = 'none';
+    $('personaIdentity').value = p.doctrine.identity || '';
+    $('personaPhilosophy').value = p.doctrine.philosophy || '';
+    $('personaTone').value = p.doctrine.tone || '';
+    $('personaPosture').value = (p.doctrine.default_posture || 'listener').split(' ')[0];
+    $('personaDebrief').value = (p.doctrine.debrief_style || 'tough_critic').split(' ')[0];
+    $('personaAuthority').value = (p.doctrine.authority_moments || []).join('\n');
+    $('personaRules').value = (p.doctrine.core_rules || []).join('\n');
+    $('tacticRows').innerHTML = '';
+    (p.tactic_matrix || []).forEach(t => addTacticRow(t));
+  }else{
+    $('personaStructured').style.display = 'none';
+    $('personaRawWrap').style.display = 'block';
+    $('personaPrompt').value = p.system_prompt || '';
+  }
+  renderPersonaList();
+}
+
+function convertToRaw(){
+  const p = personaList.find(x => x.id === editingPersonaId);
+  if(!p || !p.doctrine) return;
+  if(!confirm('Switch this persona to raw text editing?\n\nThe compiled prompt (built from the doctrine + tactic matrix) becomes plain editable text. The structured fields will be discarded on save.')) return;
+  personaRawMode = true;
+  $('personaStructured').style.display = 'none';
+  $('personaRawWrap').style.display = 'block';
+  $('personaPrompt').value = p.system_prompt || '';
+  $('rawConvertNote').style.display = 'block';
+}
+
+function _tmSelect(cls, opts, val){
+  return '<select class="sel '+cls+'">'+opts.map(o =>
+    '<option value="'+o+'"'+(o===val?' selected':'')+'>'+o.replace('_',' ')+'</option>').join('')+'</select>';
+}
+
+function addTacticRow(t){
+  t = t || {};
+  const row = document.createElement('div');
+  row.className = 'tactic-row';
+  row.innerHTML =
+    '<div class="tr-grid">'+
+      _tmSelect('tm-phase', TM_PHASES, t.phase || 'any')+
+      _tmSelect('tm-state', TM_STATES, t.prospect_state || 'any')+
+      _tmSelect('tm-posture', TM_POSTURES, t.posture || 'listener')+
+      '<button class="tr-del" title="Delete row" onclick="this.closest(\'.tactic-row\').remove()">×</button>'+
+    '</div>'+
+    '<input class="tm-guidance" placeholder="Guidance — what the coach pushes for in this situation" value="'+esc(t.guidance || '')+'">'+
+    '<textarea class="tm-examples short" rows="2" placeholder="Example lines the rep can say verbatim (one per line)">'+esc((t.example_lines || []).join('\n'))+'</textarea>';
+  $('tacticRows').appendChild(row);
+}
+
+function _collectTactics(){
+  return Array.from(document.querySelectorAll('#tacticRows .tactic-row')).map(r => ({
+    phase: r.querySelector('.tm-phase').value,
+    prospect_state: r.querySelector('.tm-state').value,
+    posture: r.querySelector('.tm-posture').value,
+    guidance: r.querySelector('.tm-guidance').value.trim(),
+    example_lines: r.querySelector('.tm-examples').value.split('\n').map(s => s.trim()).filter(Boolean)
+  })).filter(t => t.guidance || t.example_lines.length);
+}
+
+function _personaPayload(withId){
+  const name = $('personaName').value.trim();
+  const description = $('personaDesc').value.trim();
+  if(personaRawMode){
+    const prompt = $('personaPrompt').value.trim();
+    if(!name || !prompt){ alert('Name and training text are both required.'); return null; }
+    const p = {name, description, system_prompt: prompt};
+    if(withId) p.id = editingPersonaId;
+    return p;
+  }
+  const doctrine = {
+    identity: $('personaIdentity').value.trim(),
+    philosophy: $('personaPhilosophy').value.trim(),
+    tone: $('personaTone').value.trim(),
+    default_posture: $('personaPosture').value,
+    debrief_style: $('personaDebrief').value,
+    authority_moments: $('personaAuthority').value.split('\n').map(s => s.trim()).filter(Boolean),
+    core_rules: $('personaRules').value.split('\n').map(s => s.trim()).filter(Boolean)
+  };
+  if(!name || !doctrine.philosophy){ alert('Name and philosophy are both required.'); return null; }
+  const p = {name, description, doctrine, tactic_matrix: _collectTactics()};
+  if(withId) p.id = editingPersonaId;
+  return p;
+}
+
+async function saveEditedPersona(){
+  if(!editingPersonaId){ saveAsNewPersona(); return; }
+  const payload = _personaPayload(true);
+  if(!payload) return;
+  try{
+    const r = await (await fetch('/api/personas',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)})).json();
+    if(r.error){ alert('Save failed: '+r.error); return; }
+    await loadPersonas();
+    editPersona(editingPersonaId);
+    alert('Saved. The coach uses the new training on the next call.');
+  }catch(e){ alert('Save failed — is the server running?'); }
+}
+
+async function saveAsNewPersona(){
+  const payload = _personaPayload(false);
+  if(!payload) return;
+  try{
+    const r = await (await fetch('/api/personas',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)})).json();
+    if(r.error){ alert('Save failed: '+r.error); return; }
+    await loadPersonas();
+    selectPersona(r.id);
+    editPersona(r.id);
+  }catch(e){ alert('Save failed — is the server running?'); }
+}
+
+async function resetPersona(){
+  if(!editingPersonaId) return;
+  if(!confirm('Restore this built-in persona to its original shipped doctrine? Your edits to it will be lost.')) return;
+  try{
+    const r = await (await fetch('/api/personas/reset',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id: editingPersonaId})})).json();
+    if(r.error){ alert(r.error); return; }
+    await loadPersonas();
+    editPersona(editingPersonaId);
+  }catch(e){ alert('Reset failed — is the server running?'); }
+}
+
+async function deleteEditingPersona(){
+  if(!editingPersonaId) return;
+  if(!confirm('Delete this persona?')) return;
+  try{
+    await fetch('/api/personas/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id: editingPersonaId})});
+    if(personaId === editingPersonaId) personaId = 'guts_diamond';
+    editingPersonaId = null;
+    await loadPersonas();
+    editPersona(personaId);
+  }catch(e){}
+}
+
+/* ── History modal ────────────────────────────────────────────────── */
+async function openHistModal(){
+  $('histModal').classList.add('show');
+  const box = $('histList');
+  box.innerHTML = '<div style="color:var(--dim);font-size:13px">Loading…</div>';
+  try{
+    const r = await (await fetch('/api/history')).json();
+    if(!r.calls||!r.calls.length){ box.innerHTML='<div class="hist-row" style="color:var(--dim)">No calls yet.</div>'; return; }
+    box.innerHTML = r.calls.map(c =>
+      '<div class="hist-row"><span class="hist-date">'+esc(c.started_at)+'</span> · '+
+      esc(c.phone||'?')+' · '+esc(c.owner||'')+' · <b>'+esc(c.disposition||'')+'</b>'+
+      (c.recording?' · <a href="/recordings/'+esc(c.recording)+'" target="_blank">🎧 recording</a>':'')+
+      ' · <a href="/api/export/'+c.id+'/call" download>⬇ Call</a>'+
+      ' · <a href="/api/export/'+c.id+'/coaching" download>⬇ Coaching</a>'+
+      (c.summary?' — '+esc(c.summary):'')+'</div>'
+    ).join('');
+  }catch(e){ box.innerHTML='<div style="color:var(--dim)">Error loading history.</div>'; }
+}
+function closeHistModal(){ $('histModal').classList.remove('show'); }
+
+/* ── Screening detection (Layer 1 — pattern match on end-of-turn only) ─ */
+const SCREENING_PATTERNS = [
+  /who'?s calling|state your name|say who'?s calling|purpose of (your |this )?call|reason for (your |this )?call/i,
+  /may be spam|spam.?likely|robocall|this call (may|might) be/i,
+  /not available right now|leave a message after the|record your message|at the tone|please leave your (name|number|message)/i,
+  /press \d to|press pound|press the pound key/i,
+];
+function isScreeningText(text){
+  return SCREENING_PATTERNS.some(re => re.test(text));
+}
+
+/* ── Call-log event capture (source of truth for transcript exports) ─ */
+let _lastProspectSeq = 0;
+
+function fmtElapsed(sec){
+  return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+}
+function logEvent(type, payload){
+  S.seq += 1;
+  S.callLog.push(Object.assign({seq:S.seq, t:fmtElapsed(S.seconds), ts:new Date().toISOString()}, {type}, payload));
+}
+
+/* ── Objection patterns (instant, client-side) ────────────────────── */
+const OBJECTIONS_GLOBAL = [
+  {m:/not interested|no thanks|don'?t call|take me off|not for me|we'?re good|stop calling/i,
+   l:"Not interested",
+   r:"Got it — fair. One question before I let you go: is it bad timing, or do you just not believe there's a real case on the property? ... Because {case} is public record — pull up the Austin Code site while we're on. If it checks out, one yes and it's gone this week. Totally your call after that."},
+  {m:/who are you|how did you get|is this a scam|you with the city|calling from the city|how do i know/i,
+   l:"Who are you / distrust",
+   r:"Totally fair — you don't know me, and honestly you SHOULD check. Case {case} is public record; pull up the Austin Code site right now, I'll wait. If it's not there, hang up on me. If it is — want it handled this week? Your call either way."},
+  {m:/too expensive|can'?t afford|cost too much|that'?s a lot|too much money|cheaper/i,
+   l:"Price pushback",
+   r:"Got it. Quick question: is it the fee itself, or you're not convinced the case is real? ... Because next to what this costs if it keeps running, the fee's tiny — flat, once, done this week, and you never touch the city. Totally your call."},
+  {m:/already handled|already taken care|my contractor|my buddy|my lawyer|already fixed|i took care|being handled/i,
+   l:"Already handled",
+   r:"Good — glad someone's on it. One thing though: {case} still shows ACTIVE, and doing the work and closing the case with the inspector are two different jobs. It's the second one that stops the penalties. If it's still open when I check, want us to close it out properly?"},
+  {m:/think about it|call you back|not right now|send me something|later this week|talk to my wife|talk to my husband/i,
+   l:"Stalling",
+   r:"Got it — of course you want to think it over; you heard about this two minutes ago. Here's the thing: the case clock doesn't pause while you think. What specifically do you want to think about? Odds are I can answer it right now."},
+  {m:/\bbusy\b|in a meeting|middle of something|bad time|at work|can'?t talk/i,
+   l:"I'm busy",
+   r:"Got it — you're busy, so I'll be 30 seconds. The city has an active case on your property, and one yes from you takes it off your plate this week. That's the whole call. If it's a no, tell me no and I'm gone. Fair?"},
+  {m:/might sell|thinking of selling|want to sell|just sell|get rid of the property|listing it/i,
+   l:"Wants to sell",
+   r:"That actually makes this simpler. We work with buyers who take properties as-is — violations and all — and the case dies at closing. Want me to have someone run numbers today? Costs you nothing."},
+  {m:/not the owner|wrong person|don'?t own|tenant|renting/i,
+   l:"Not the owner",
+   r:"Got it — appreciate you telling me. Do me a favor though: this is real, and the owner's going to want to know today, not next week. What's the best number for them — or can you get this in front of them this afternoon?"}
+];
+const OBJECTIONS_PLAY = {
+  STR: [{m:/property manager|my pm handles|management compan|my manager handles/i, l:"PM handles it",
+    r:"Good — then quick question: has your PM told you case {case} exists? ... Because the fines land on you, the owner — not the manager. One yes and we close it out properly. Your call."}],
+  LAND_USE_COMMERCIAL: [
+    {m:/landlord|my lease|call the (?:property )?owner|building owner/i, l:"Call my landlord",
+     r:"Got it — the landlord owns the dirt, but the city cites the operating business. If permits get paused, it's your doors that close. We freeze the clock now and loop your landlord into the fix. Want it handled?"},
+    {m:/my (?:gm|manager|attorney|lawyer) (?:handles|deals)/i, l:"GM/lawyer handles it",
+     r:"Good — then they should know case {case} is active. Have they mentioned it? Forward me to them right now — the response window doesn't wait on internal routing."}
+  ],
+  PERMIT: [{m:/architect|engineer|permit guy|expeditor/i, l:"My permit guy has it",
+    r:"Good — ask them one question: has the response been logged on case {case}? This is ALL we do — want me to check where it's actually stuck? Costs nothing to look."}]
+};
+
+/* ── State ────────────────────────────────────────────────────────── */
+let S = {wsRep:null, wsProspect:null, ctx:null, workletRep:null, workletProspect:null,
+          transcript:'', coachContext:'', transcriptLines:[], timer:null, streams:[], on:false, startedAt:null,
+          lastProspect:'', timerInterval:null, seconds:0,
+          altSuggestion:null, showingAlt:false, primaryText:'',
+          twilioConn:null, twilioDevice:null, muted:false, instantFired:false,
+          telnyxClient:null, telnyxCall:null, _telnyxAnswered:false,
+          plivoClient:null, _plivoAnswered:false,
+          wrapActive:false, endedAt:null,
+          recDest:null, recorder:null, recChunks:[], recBlob:null,
+          callLog:[], seq:0,
+          lastAnalysis:null, openerShown:false, recentCoachLines:[]};
+
+/* ── Phone Link dial ──────────────────────────────────────────────── */
+/* ── Custom play panel toggle ─────────────────────────────────────── */
+function onPlayChange(){
+  const play = ($('play')||{}).value;
+  const isCustom = play === 'CUSTOM';
+  const panel = $('customPanel');
+  const propFields = ['owner','caseId','address','fee'];
+  if(panel) panel.style.display = isCustom ? 'block' : 'none';
+  propFields.forEach(id => {
+    const cell = ($(id)||{}).closest ? $(id).closest('.ctx-cell') : null;
+    if(cell) cell.style.opacity = isCustom ? '0.35' : '1';
+  });
+}
+
+/* ── Build custom payload from questionnaire fields ──────────────── */
+function buildCustomPayload(){
+  const method = document.querySelector('input[name="cpMethod"]:checked');
+  return {
+    method:   method ? method.value : 'sean_direct',
+    who:      ($('cpWho')||{}).value    || '',
+    goal:     ($('cpGoal')||{}).value   || '',
+    angle:    ($('cpAngle')||{}).value  || '',
+    pushback: ($('cpPushback')||{}).value || '',
+    tone:     ($('cpTone')||{}).value   || 'Professional',
+  };
+}
+
+/* ── Persist context ──────────────────────────────────────────────── */
+function saveCtx(){
+  const fields = ['play','owner','address','caseId','fee','notes','dialNum'];
+  const d = {}; fields.forEach(f => d[f] = ($(f)||{}).value || '');
+  // Also persist custom questionnaire answers
+  d._custom = buildCustomPayload();
+  try{localStorage.setItem('cc_ctx', JSON.stringify(d));}catch(e){}
+}
+function loadCtx(){
+  try{
+    const d = JSON.parse(localStorage.getItem('cc_ctx')||'{}');
+    ['fee','notes'].forEach(f => { if(d[f] && $(f)) $(f).value = d[f]; });
+    // Restore custom answers
+    if(d._custom){
+      if($('cpWho'))      $('cpWho').value      = d._custom.who      || '';
+      if($('cpGoal'))     $('cpGoal').value     = d._custom.goal     || '';
+      if($('cpAngle'))    $('cpAngle').value    = d._custom.angle    || '';
+      if($('cpPushback')) $('cpPushback').value = d._custom.pushback || '';
+      if($('cpTone'))     $('cpTone').value     = d._custom.tone     || 'Professional';
+      const methodEl = document.querySelector(`input[name="cpMethod"][value="${d._custom.method||'sean_direct'}"]`);
+      if(methodEl) methodEl.checked = true;
+    }
+    // Re-run toggle in case play=CUSTOM was persisted
+    onPlayChange();
+  }catch(e){}
+}
+
+/* ── Instant objection check ──────────────────────────────────────── */
+function checkInstant(text){
+  const play = ($('play')||{}).value || '';
+  const caseNum = ($('caseId')||{}).value || 'the case';
+  const all = (OBJECTIONS_PLAY[play]||[]).concat(OBJECTIONS_GLOBAL);
+  for(const o of all){
+    if(o.m.test(text)){
+      const rb = o.r.replace(/\{case\}/g, caseNum);
+      showCoaching({say_next:rb, objection:o.l, coach_type:'instant'}, true);
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ── Prep recall ──────────────────────────────────────────────────── */
+async function checkPrep(){
+  const el = $('dialNum');
+  const num = el ? el.value : '';
+  if(!num) return;
+  const digits = num.replace(/[^0-9]/g,'');
+  if(digits.length < 7) return;
+  try{
+    const r = await (await fetch('/api/prep_by_phone/'+encodeURIComponent(digits))).json();
+    const strip = $('prepRecall');
+    if(!strip) return;
+    if(r.found){
+      let parts = [];
+      if(r.last_disposition) parts.push('LAST: '+r.last_disposition.toUpperCase());
+      if(r.summary) parts.push(r.summary);
+      if(r.recommended_opener) parts.push('OPENER: '+r.recommended_opener);
+      strip.textContent = parts.join(' · ');
+      strip.title = parts.join('\n');
+      strip.classList.add('show');
+      if(r.play && $('play') && $('play').value==='GENERAL') $('play').value = r.play;
+      if(r.owner_name && $('owner') && !$('owner').value) $('owner').value = r.owner_name;
+      if(r.address && $('address') && !$('address').value) $('address').value = r.address;
+      if(r.case_id && $('caseId') && !$('caseId').value) $('caseId').value = r.case_id;
+    } else { strip.classList.remove('show'); }
+  }catch(e){ const s=$('prepRecall'); if(s) s.classList.remove('show'); }
+}
+
+/* ── AudioWorklet ─────────────────────────────────────────────────── */
+const WORKLET_CODE = `class P extends AudioWorkletProcessor {
+  constructor(){super();this.buf=[];this.ratio=sampleRate/16000;this.n=800;}
+  process(inp){
+    const c=inp[0]&&inp[0][0];
+    if(c){
+      for(let i=0;i<c.length;i+=this.ratio) this.buf.push(c[Math.floor(i)]);
+      while(this.buf.length>=this.n){
+        const ch=this.buf.splice(0,this.n);
+        const i16=new Int16Array(ch.length);
+        for(let i=0;i<ch.length;i++) i16[i]=Math.max(-32768,Math.min(32767,ch[i]*32768));
+        this.port.postMessage(i16.buffer,[i16.buffer]);
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('p',P);`;
+
+/* ── Call recording (local, both call methods) ────────────────────── */
+function startRecorder(){
+  if(!S.recDest) return;
+  try{
+    S.recorder = new MediaRecorder(S.recDest.stream, {mimeType:'audio/webm;codecs=opus'});
+  }catch(e){
+    try{ S.recorder = new MediaRecorder(S.recDest.stream); }
+    catch(e2){ console.warn('recorder unavailable', e2); S.recorder = null; return; }
+  }
+  S.recChunks = [];
+  S.recorder.ondataavailable = ev => { if(ev.data && ev.data.size) S.recChunks.push(ev.data); };
+  S.recorder.start(1000);
+  $('recDot').classList.add('show');
+}
+
+function finalizeRecording(){
+  $('recDot').classList.remove('show');
+  if(S.recBlob) return Promise.resolve(S.recBlob);
+  if(!S.recorder || S.recorder.state === 'inactive'){
+    if(S.recChunks.length){ S.recBlob = new Blob(S.recChunks,{type:'audio/webm'}); return Promise.resolve(S.recBlob); }
+    return Promise.resolve(null);
+  }
+  return new Promise(res => {
+    const t = setTimeout(() => res(null), 3000);
+    S.recorder.onstop = () => {
+      clearTimeout(t);
+      S.recBlob = new Blob(S.recChunks, {type:'audio/webm'});
+      res(S.recBlob);
+    };
+    try{ S.recorder.stop(); }catch(e){ clearTimeout(t); res(null); }
+  });
+}
+
+async function uploadRecording(blob, phone){
+  if(!blob || blob.size < 2000) return '';
+  try{
+    const r = await (await fetch('/api/save_recording?phone='+encodeURIComponent(phone||''),
+      {method:'POST', body: blob})).json();
+    return r.file || '';
+  }catch(e){ console.warn('recording upload failed', e); return ''; }
+}
+
+/* ── Start coaching ───────────────────────────────────────────────── */
+async function start(inboundConn){
+  if(S.on) return;
+  cancelAutoDial('start');
+  if(!inboundConn && dialGuardCheck()) return;   // inbound callbacks aren't dials — guard doesn't apply
+  hideSetupError();
+  S.on = true; S.transcript = ''; S.coachContext = ''; S.transcriptLines = []; S.lastProspect = '';
+  AutoDial.sessionDials++; syncAutoDialUI();
+  S.startedAt = new Date().toISOString(); S.seconds = 0; S.muted = false; S.instantFired = false; S.repSpoke = false;
+  S.recDest = null; S.recorder = null; S.recChunks = []; S.recBlob = null;
+  S.callLog = []; S.seq = 0; _lastProspectSeq = 0; S.lastAnalysis = null;
+  S.openerShown = false; S.recentCoachLines = []; S.awaitingPermission = false; S.openerCardVisible = false;
+  S.cardDelivered = true; S.pendingCard = null; S.lastCardAt = 0; S._lastVoiceTurn = null; S.factOverride = null;
+  // Capture custom payload once at call start so every API call carries it
+  S.custom = (($('play')||{}).value === 'CUSTOM') ? buildCustomPayload() : null;
+  // Validate required custom fields before letting the call start
+  if(S.custom){
+    if(!S.custom.who || !S.custom.goal){
+      resetToSetup();
+      showSetupError('Custom play: fill in "Who are you calling?" and "Win for this call" before starting.');
+      return;
+    }
+    // Set personaId from methodology radio — route to cardone if selected,
+    // strictly default to sean_direct otherwise (no other persona is valid here).
+    const meth = S.custom.method || 'sean_direct';
+    personaId = meth === 'cardone' ? 'cardone' : 'sean_direct';
+  }
+  saveCtx();
+
+  $('setupView').style.display = 'none';
+  $('liveView').classList.add('show');
+  const liveLabel = S.custom
+    ? `✦ Custom — ${S.custom.goal}`
+    : [($('owner')||{}).value, ($('address')||{}).value].filter(Boolean).join(' • ') || 'Manual call';
+  $('liveInfo').textContent = liveLabel;
+  $('sayCard').classList.remove('show');
+  showFirstMoveCard();
+  $('transcriptBox').innerHTML = '<div class="waiting" id="transcriptWaiting">Waiting for audio…</div>';
+  $('coachWaiting').style.display = 'block';
+  $('coachWaiting').textContent = 'Waiting for prospect to speak…';
+  $('coachWaiting').style.color = 'var(--dim)';
+  $('intelCard').style.display = 'none';
+  _analyzeFailCount = 0; _analyzeInFlight = false;
+  $('twilioControls').style.display = 'flex';
+  setPill('connecting', 'warn');
+
+  S.timerInterval = setInterval(() => {
+    S.seconds++;
+    const m = String(Math.floor(S.seconds/60)).padStart(2,'0');
+    const s = String(S.seconds%60).padStart(2,'0');
+    $('liveTimer').textContent = m+':'+s;
+  }, 1000);
+
+  // ── Transcription tokens: sequential, and failures are NAMED, not a flicker
+  let tokenRep, tokenProspect;
+  try{
+    const t1 = await (await fetch('/api/aai_token')).json();
+    if(t1.error || !t1.token) throw new Error(t1.error || 'AssemblyAI returned no token');
+    const t2 = await (await fetch('/api/aai_token')).json();
+    if(t2.error || !t2.token) throw new Error(t2.error || 'AssemblyAI returned no token (2nd stream)');
+    tokenRep = t1.token; tokenProspect = t2.token;
+  }catch(e){
+    resetToSetup();
+    showSetupError('Could not start — transcription token failed: '+(e.message||e)+
+      '  → check the AssemblyAI account/credits for the assemblyai_key in cc_config.json.');
+    return;
+  }
+
+  // ── Audio context + worklet
+  try{
+    S.ctx = new (window.AudioContext||window.webkitAudioContext)();
+    await S.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET_CODE],{type:'application/javascript'})));
+    try{ S.recDest = S.ctx.createMediaStreamDestination(); }catch(e){ S.recDest = null; }
+  }catch(e){
+    resetToSetup();
+    showSetupError('Could not start — audio engine failed: '+(e.message||e));
+    return;
+  }
+
+  function openSocket(token, label){
+    const ws = new WebSocket('wss://streaming.assemblyai.com/v3/ws?sample_rate=16000&format_turns=true&end_of_turn_confidence_threshold=0.6&min_end_of_turn_silence_when_confident=700&token='+token);
+    ws.onopen = () => { if(label==='REP') setPill('transcribing','ok'); };
+    ws.onerror = () => setPill(label+' error','err');
+    ws.onmessage = ev => {
+      try{
+        const m = JSON.parse(ev.data);
+        if(m.type==='Turn' && m.end_of_turn && m.transcript){
+          const screening = label==='PROSPECT' && isScreeningText(m.transcript);
+          addTranscriptLine(label==='REP'?'rep':'prospect', m.transcript, screening);
+          if(label==='REP'){
+            S.repSpoke = true;   // rep has now delivered a line — coach may advance past the opener
+            S.repTurns = (S.repTurns || 0) + 1;
+            S.openerCardVisible = false;  // rep moved past whatever card was showing
+            // Coach-must-never-sit-dark fallback: only from the rep's SECOND turn on.
+            // Firing on the FIRST rep line (the name-check) swaps the card the instant
+            // the rep finishes "Hey, is this [Name]?" — before the prospect can answer,
+            // which reads as the coach talking over the prospect. If the prospect replies
+            // normally, their reply fires the opener (PROSPECT branch below) and this
+            // never triggers; it exists only for a prospect who stays silent.
+            if(!S.openerShown && !S.trainMode && !trainSession && S.repTurns >= 2){
+              S.openerShown = true;
+              showOpeningLine();
+            }
+          } else if(label==='PROSPECT'){
+            if(screening){
+              showScreeningCard();
+            } else {
+              // 2-part pacing: the prospect's pickup ("Hello?") does NOT trigger the full
+              // opener — only their REPLY to the rep's name-check card does. Gate on
+              // S.repSpoke so the full _node_opener paragraph waits for the rep to actually
+              // say "Hey, is this [Name]?" first, then fires on the prospect's NEXT line.
+              if(!S.openerShown && S.repSpoke){
+                S.openerShown = true;
+                showOpeningLine();
+                // don't also analyze this turn — the deterministic opener IS the response
+              } else if(S.repSpoke){
+                S.lastProspect = m.transcript;
+                checkInstant(m.transcript);
+                maybeScheduleAnalyze(m.transcript);
+              }
+            }
+          }
+        }
+      }catch(e){}
+    };
+    return ws;
+  }
+
+  // --- REP: always from mic ---
+  let mic;
+  try{ mic = await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ mic=null; }
+  S.wsRep = openSocket(tokenRep, 'REP');
+  S.workletRep = new AudioWorkletNode(S.ctx, 'p');
+  // MUTE BYPASS FIX (2026-07-29): toggleMute() only called the telephony SDK's
+  // mute (Twilio/Telnyx/Plivo) -- that silences the PROSPECT'S ear, but this
+  // worklet forwards raw mic audio to AssemblyAI over S.wsRep completely
+  // independently of call-mute state, so transcription (and the coach reacting
+  // to it) never actually stopped when the rep hit Mute. Gate the forward on
+  // S.muted here so muting the call also hard-mutes what the AI hears.
+  S.workletRep.port.onmessage = e => {
+    if(S.muted) return;
+    if(S.wsRep && S.wsRep.readyState===1) S.wsRep.send(e.data);
+  };
+  if(mic){
+    S.streams.push(mic);
+    S.micTrack = mic.getAudioTracks()[0] || null;   // toggleMute() hard-disables this track too
+    const micSrc = S.ctx.createMediaStreamSource(mic);
+    micSrc.connect(S.workletRep);
+    if(S.recDest) micSrc.connect(S.recDest);
+  }
+  startRecorder();
+
+  // --- PROSPECT: WebRTC engine chosen by telephony_provider in cc_config.json ---
+  if(inboundConn){ await acceptTwilioInbound(inboundConn, tokenProspect); }
+  else if(callMethod === 'telnyx'){ await startTelnyxCall(tokenProspect); }
+  else if(callMethod === 'plivo'){ await startPlivoCall(tokenProspect); }
+  else { await startTwilioCall(tokenProspect); }
+}
+
+/* ── Twilio call path ─────────────────────────────────────────────── */
+async function startTwilioCall(aaiToken){
+  const num = ($('dialNum')||{}).value;
+  if(!num){ setPill('no number','err'); return; }
+
+  let twToken;
+  try{
+    const r = await (await fetch('/api/twilio_token')).json();
+    if(r.error){ setPill('twilio token error','err'); showLiveProblem('Twilio: '+r.error); return; }
+    twToken = r.token;
+  }catch(e){ setPill('token fetch fail','err'); showLiveProblem('Twilio token fetch failed: '+e); return; }
+
+  try{
+    S.twilioDevice = new Twilio.Device(twToken, {codecPreferences: ['opus','pcmu'], logLevel: 1});
+  }catch(e){ setPill('device init fail','err'); showLiveProblem('Twilio SDK init failed: '+(e.message||e)); return; }
+
+  S.twilioDevice.on('error', e => { console.error('Twilio device error:', e.code, e.message); setPill('err: '+e.message, 'err'); });
+
+  try{
+    await S.twilioDevice.register();
+    setPill('registered','ok');
+  }catch(e){ setPill('register fail','err'); showLiveProblem('Twilio register failed: '+(e.message||e)); return; }
+
+  let digits = num.replace(/[^0-9+]/g,'');
+  if(!digits.startsWith('+')){
+    digits = digits.length===10 ? '+1'+digits : (digits.length===11 && digits[0]==='1' ? '+'+digits : '+1'+digits);
+  }
+
+  try{
+    setPill('dialing…','warn');
+    S.twilioConn = await S.twilioDevice.connect({ params: { To: digits } });
+    // Grab the CallSid so we can ask the server WHY this dial ended when it
+    // disconnects (answered vs no-answer/busy) — drives auto-disposition.
+    try{ S.callSid = (S.twilioConn.parameters||{}).CallSid || null; }catch(e){ S.callSid = null; }
+  }catch(e){ setPill('connect fail','err'); showLiveProblem('Twilio connect failed: '+(e.message||e)); return; }
+
+  S.twilioConn.on('ringing', () => { setPill('ringing','warn'); });
+
+  S.twilioConn.on('accept', () => {
+    setPill('connected','ok');
+    _pollRemoteStream(() =>
+      (S.twilioConn && S.twilioConn.getRemoteStream) ? S.twilioConn.getRemoteStream() : null,
+      aaiToken);
+  });
+
+  S.twilioConn.on('disconnect', () => { handleCallEnded(); });
+  S.twilioConn.on('cancel',     () => { setPill('cancelled','warn'); handleCallEnded(); });
+  S.twilioConn.on('reject',     () => { setPill('rejected','err'); handleCallEnded(); });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   INBOUND CALLBACK LISTENER
+   A prospect who missed our call redials one of the pool DIDs → Twilio
+   routes it to this browser client (identity "cellcoach"). The listener
+   Device is persistent (created at page load, separate from the per-call
+   outbound Device) so callbacks ring even when the rep is idle.
+   ═══════════════════════════════════════════════════════════════════ */
+async function initInboundListener(){
+  if(S.inboundDevice) return;
+  let twToken;
+  try{
+    const r = await (await fetch('/api/twilio_token')).json();
+    if(r.error || !r.token) return;
+    twToken = r.token;
+  }catch(e){ return; }
+  try{
+    S.inboundDevice = new Twilio.Device(twToken, {codecPreferences:['opus','pcmu'], logLevel:1});
+    S.inboundDevice.on('error', e => { console.warn('inbound device error:', e.code, e.message); });
+    // Token TTL is 1h — refresh before expiry so callbacks never go dead.
+    S.inboundDevice.on('tokenWillExpire', async () => {
+      try{
+        const r = await (await fetch('/api/twilio_token')).json();
+        if(r.token) S.inboundDevice.updateToken(r.token);
+      }catch(e){}
+    });
+    S.inboundDevice.on('incoming', conn => { handleInboundCall(conn); });
+    await S.inboundDevice.register();
+    console.log('inbound callback listener registered');
+  }catch(e){ console.warn('inbound listener init failed', e); S.inboundDevice = null; }
+}
+
+function hideInboundBanner(){
+  const b = $('inboundBanner');
+  if(b) b.classList.remove('show');
+}
+
+async function handleInboundCall(conn){
+  // Already on a call (or banner already up for another ring) → busy-reject;
+  // the server-side step machine forwards to the rep's cell instead.
+  if(S.on || S.inboundConn){ try{ conn.reject(); }catch(e){} return; }
+  S.inboundConn = conn;
+  const from = (conn.parameters && conn.parameters.From) || '';
+  const banner = $('inboundBanner');
+  $('inboundFrom').textContent = from || 'Unknown number';
+  $('inboundCtx').textContent = 'Looking up lead…';
+  banner.classList.add('show');
+  // Lead context lookup — same prep endpoint the dialer uses before a call.
+  let ctx = null;
+  try{
+    const digits = from.replace(/[^0-9]/g,'');
+    if(digits.length >= 7){
+      const r = await (await fetch('/api/prep_by_phone/'+encodeURIComponent(digits))).json();
+      if(r && r.found) ctx = r;
+    }
+  }catch(e){}
+  S.inboundCtx = ctx;
+  if(banner.classList.contains('show')){
+    $('inboundCtx').textContent = ctx
+      ? [ctx.owner_name, ctx.address,
+         ctx.last_disposition ? 'LAST: '+String(ctx.last_disposition).toUpperCase().replace(/_/g,' ') : '',
+         ctx.summary ? String(ctx.summary).slice(0,120) : ''].filter(Boolean).join(' · ')
+      : 'No prior history for this number';
+  }
+  $('inboundAccept').onclick = () => {
+    const c = S.inboundConn; S.inboundConn = null;
+    hideInboundBanner();
+    if(c) acceptInboundCall(c);
+  };
+  $('inboundReject').onclick = () => {
+    const c = S.inboundConn; S.inboundConn = null;
+    hideInboundBanner();
+    if(c){ try{ c.reject(); }catch(e){} }
+  };
+  conn.on('cancel', () => {          // caller hung up before we answered
+    if(S.inboundConn === conn) S.inboundConn = null;
+    hideInboundBanner();
+  });
+}
+
+async function acceptInboundCall(conn){
+  const from = (conn.parameters && conn.parameters.From) || '';
+  const ctx = S.inboundCtx; S.inboundCtx = null;
+  // Pre-fill the lead fields so wrap-up/call_end logs the right phone,
+  // owner, and address — same record shape as an outbound call.
+  const digits = from.replace(/[^0-9]/g,'');
+  if($('dialNum') && digits) $('dialNum').value = digits;
+  if(ctx){
+    if(ctx.owner_name && $('owner')) $('owner').value = ctx.owner_name;
+    if(ctx.address && $('address')) $('address').value = ctx.address;
+    if(ctx.case_id && $('caseId')) $('caseId').value = ctx.case_id;
+    if(ctx.play && $('play')) $('play').value = ctx.play;
+  }
+  // Run the exact outbound start flow, but accept the ringing connection
+  // instead of dialing out — live view, timer, transcription, coach, and
+  // wrap-up all behave identically to a normal call.
+  start(conn);
+}
+
+async function acceptTwilioInbound(conn, aaiToken){
+  S.twilioConn = conn;
+  conn.on('accept', () => {
+    setPill('connected','ok');
+    _pollRemoteStream(() =>
+      (S.twilioConn && S.twilioConn.getRemoteStream) ? S.twilioConn.getRemoteStream() : null,
+      aaiToken);
+  });
+  conn.on('disconnect', () => { handleCallEnded(); });
+  conn.on('cancel',     () => { setPill('cancelled','warn'); handleCallEnded(); });
+  conn.on('reject',     () => { setPill('rejected','err'); handleCallEnded(); });
+  conn.accept();
+  setPill('connecting','warn');
+}
+
+/* ── Shared prospect-stream plumbing (engine-agnostic) ──────────────
+   Both WebRTC engines deliver the prospect's voice as a MediaStream;
+   everything downstream (AssemblyAI dual-STT, recording mix) is
+   identical regardless of provider. */
+function _prospectStreamAttached(rs, aaiToken){
+  S.wsProspect = openProspectSocket(aaiToken);
+  S.workletProspect = new AudioWorkletNode(S.ctx, 'p');
+  S.workletProspect.port.onmessage = e => { if(S.wsProspect && S.wsProspect.readyState===1) S.wsProspect.send(e.data); };
+  const rsSrc = S.ctx.createMediaStreamSource(rs);
+  rsSrc.connect(S.workletProspect);
+  if(S.recDest) rsSrc.connect(S.recDest);
+  setPill('transcribing both','ok');
+}
+function _pollRemoteStream(getStream, aaiToken){
+  let polls = 0;
+  const iv = setInterval(() => {
+    let rs = null;
+    try{ rs = getStream(); }catch(e){}
+    if(rs && rs.getAudioTracks && rs.getAudioTracks().length > 0){
+      clearInterval(iv);
+      _prospectStreamAttached(rs, aaiToken);
+    } else if(++polls > 50){
+      clearInterval(iv);
+      console.warn('[webrtc] remote stream not found after 10s — coaching from mic only');
+      setPill('mic only','warn');
+    }
+  }, 200);
+}
+
+/* ── Telnyx call path (parallel engine — Twilio path above untouched) ── */
+async function startTelnyxCall(aaiToken){
+  const num = ($('dialNum')||{}).value;
+  setPill('telnyx init…','warn');
+  let tk;
+  try{
+    const r = await (await fetch('/api/telnyx_token')).json();
+    if(r.error){ setPill('telnyx token error','err'); showLiveProblem('Telnyx: '+r.error); return; }
+    tk = r.token;
+  }catch(e){ setPill('token fetch fail','err'); showLiveProblem('Telnyx token fetch failed: '+e); return; }
+  if(typeof TelnyxWebRTC === 'undefined' || !TelnyxWebRTC.TelnyxRTC){
+    setPill('sdk load fail','err'); showLiveProblem('Telnyx WebRTC SDK failed to load (CDN blocked?)'); return;
+  }
+  try{
+    S.telnyxClient = new TelnyxWebRTC.TelnyxRTC({ login_token: tk, remoteElement: 'telnyxRemoteMedia' });
+  }catch(e){ setPill('client init fail','err'); showLiveProblem('Telnyx SDK init failed: '+(e.message||e)); return; }
+  S.telnyxClient.on('telnyx.error', e => {
+    console.error('Telnyx error:', e);
+    setPill('err: '+((e && e.message) || 'telnyx'), 'err');
+  });
+  S.telnyxClient.on('telnyx.ready', () => {
+    let digits = (num || '').replace(/[^0-9]/g,'');
+    if(digits.length === 10) digits = '1' + digits;
+    if(!digits){ showLiveProblem('No destination number.'); return; }
+    setPill('dialing…','warn');
+    try{
+      S.telnyxCall = S.telnyxClient.newCall({ destinationNumber: '+' + digits });
+    }catch(e){ setPill('dial fail','err'); showLiveProblem('Telnyx newCall failed: '+(e.message||e)); }
+  });
+  S.telnyxClient.on('telnyx.notification', n => {
+    if(!n || n.type !== 'callUpdate' || !n.call) return;
+    if(!S.telnyxCall) S.telnyxCall = n.call;
+    const st = (n.call.state || '').toUpperCase();
+    if(st === 'RINGING'){
+      setPill('ringing','warn');
+    } else if(st === 'ACTIVE' || st === 'ANSWER'){
+      if(S._telnyxAnswered) return;
+      S._telnyxAnswered = true;
+      setPill('connected','ok');
+      _pollRemoteStream(() => {
+        try{ if(S.telnyxCall && S.telnyxCall.remoteStream) return S.telnyxCall.remoteStream; }catch(e){}
+        try{ if(S.telnyxClient && S.telnyxClient.remoteStream) return S.telnyxClient.remoteStream; }catch(e){}
+        const a = $('telnyxRemoteMedia');
+        if(a && a.captureStream){
+          try{ const s = a.captureStream(); if(s && s.getAudioTracks().length) return s; }catch(e){}
+        }
+        return null;
+      }, aaiToken);
+    } else if(st === 'HANGUP' || st === 'DESTROY'){
+      S._telnyxAnswered = false;
+      handleCallEnded();
+    }
+  });
+  try{ S.telnyxClient.connect(); }
+  catch(e){ setPill('connect fail','err'); showLiveProblem('Telnyx connect failed: '+(e.message||e)); }
+}
+
+/* ── Plivo call path (third parallel engine — Twilio/Telnyx untouched) ── */
+async function startPlivoCall(aaiToken){
+  const num = ($('dialNum')||{}).value;
+  setPill('plivo init…','warn');
+  let tk;
+  try{
+    const r = await (await fetch('/api/plivo_token')).json();
+    if(r.error){ setPill('plivo token error','err'); showLiveProblem('Plivo: '+r.error); return; }
+    tk = r.token;
+  }catch(e){ setPill('token fetch fail','err'); showLiveProblem('Plivo token fetch failed: '+e); return; }
+  if(typeof window.Plivo === 'undefined'){
+    setPill('sdk load fail','err'); showLiveProblem('Plivo Browser SDK failed to load (CDN blocked?)'); return;
+  }
+  try{
+    S.plivoClient = new window.Plivo({debug:'ERROR', permOnClick:true, enableTracking:false});
+  }catch(e){ setPill('client init fail','err'); showLiveProblem('Plivo SDK init failed: '+(e.message||e)); return; }
+  const C = S.plivoClient.client;
+  C.on('onLogin', () => {
+    let digits = (num || '').replace(/[^0-9]/g,'');
+    if(digits.length === 10) digits = '1' + digits;
+    if(!digits){ showLiveProblem('No destination number.'); return; }
+    setPill('dialing…','warn');
+    try{ C.call('+' + digits); }
+    catch(e){ setPill('dial fail','err'); showLiveProblem('Plivo call failed: '+(e.message||e)); }
+  });
+  C.on('onLoginFailed', e => {
+    setPill('plivo login fail','err');
+    showLiveProblem('Plivo login failed — check auth_id/token and endpoint. '+JSON.stringify(e||{}).slice(0,120));
+  });
+  C.on('onCallRemoteRinging', () => setPill('ringing','warn'));
+  const answered = () => {
+    if(S._plivoAnswered) return;
+    S._plivoAnswered = true;
+    setPill('connected','ok');
+    _pollRemoteStream(_plivoRemoteStream, aaiToken);
+  };
+  C.on('onCallConnected', answered);
+  C.on('onMediaConnected', answered);
+  C.on('onCallAnswered', answered);
+  const ended = () => { S._plivoAnswered = false; handleCallEnded(); };
+  C.on('onCallTerminated', ended);
+  C.on('onCallFailed', ended);
+  try{ C.loginWithAccessToken(tk); }
+  catch(e){ setPill('login fail','err'); showLiveProblem('Plivo login failed: '+(e.message||e)); }
+}
+
+/* The Plivo SDK owns its internal <audio> element for remote media rather
+   than exposing the MediaStream directly, so we locate the live audio
+   element and capture its stream. Works regardless of SDK internals. */
+function _plivoRemoteStream(){
+  const els = document.querySelectorAll('audio');
+  for(const a of els){
+    if(a.id === 'telnyxRemoteMedia') continue;   // ours — silent under Plivo
+    try{
+      if(a.srcObject && a.srcObject.getAudioTracks && a.srcObject.getAudioTracks().length) return a.srcObject;
+      if(a.captureStream){
+        const s = a.captureStream();
+        if(s && s.getAudioTracks().length) return s;
+      }
+    }catch(e){}
+  }
+  return null;
+}
+
+/* Show a problem on the live view without silently dying */
+function showLiveProblem(msg){
+  console.error('[cellcoach live]', msg);
+  $('coachWaiting').style.display = 'block';
+  $('coachWaiting').textContent = '⚠ ' + msg;
+  $('coachWaiting').style.color = 'var(--bad)';
+}
+
+function openProspectSocket(token){
+  const ws = new WebSocket('wss://streaming.assemblyai.com/v3/ws?sample_rate=16000&format_turns=true&end_of_turn_confidence_threshold=0.6&min_end_of_turn_silence_when_confident=700&token='+token);
+  ws.onopen = () => {};
+  ws.onerror = () => setPill('prospect ws error','err');
+  ws.onmessage = ev => {
+    try{
+      const m = JSON.parse(ev.data);
+      if(m.type==='Turn'){
+        if(m.end_of_turn && m.transcript){
+          removePartial();
+          const screening = isScreeningText(m.transcript);
+          addTranscriptLine('prospect', m.transcript, screening);
+          if(screening){
+            showScreeningCard();
+          } else {
+            // 2-part pacing: wait for the rep's name-check to land (S.repSpoke) before the
+            // full opener fires — the prospect's pickup line alone doesn't unlock it.
+            if(!S.openerShown && S.repSpoke){
+              S.openerShown = true;
+              showOpeningLine();
+              // don't also analyze this turn — the deterministic opener IS the response
+            } else if(S.repSpoke){
+              S.lastProspect = m.transcript;
+              S.instantFired = false;
+              checkInstant(m.transcript);
+              maybeScheduleAnalyze(m.transcript);
+            }
+          }
+        } else if(m.transcript){
+          updatePartial(m.transcript);
+          if(S.repSpoke && !S.instantFired && checkInstant(m.transcript)) S.instantFired = true;
+        }
+      }
+    }catch(e){}
+  };
+  return ws;
+}
+
+function updatePartial(text){
+  const box = $('transcriptBox');
+  const w = box.querySelector('.waiting'); if(w) w.remove();
+  let p = $('partialBubble');
+  if(!p){ p = document.createElement('div'); p.id='partialBubble'; p.className='msg partial'; box.appendChild(p); }
+  p.textContent = text + '…';
+  box.scrollTop = box.scrollHeight;
+}
+function removePartial(){ const p=$('partialBubble'); if(p) p.remove(); }
+
+function toggleMute(){
+  if(!S.twilioConn && !S.telnyxCall && !S.plivoClient) return;
+  S.muted = !S.muted;
+  if(S.twilioConn){ try{ S.twilioConn.mute(S.muted); }catch(e){} }
+  if(S.telnyxCall){ try{ S.muted ? S.telnyxCall.muteAudio() : S.telnyxCall.unmuteAudio(); }catch(e){} }
+  if(S.plivoClient){ try{ S.muted ? S.plivoClient.client.mute() : S.plivoClient.client.unmute(); }catch(e){} }
+  // Hard-mute the actual hardware track too (belt-and-suspenders alongside the
+  // S.muted check in workletRep.port.onmessage above) — disabling the track
+  // stops the browser from reading the mic at all while muted, not just from
+  // sending what it read. Never throws if mic capture failed to start.
+  if(S.micTrack){ try{ S.micTrack.enabled = !S.muted; }catch(e){} }
+  $('btnMute').textContent = S.muted ? 'Unmute' : 'Mute';
+  $('btnMute').classList.toggle('on', S.muted);
+  if(S.muted){
+    console.log('[AUDIO] Twilio Muted & WebSocket transcription paused');
+  } else {
+    console.log('[AUDIO] Unmuted — mic + transcription resumed');
+  }
+}
+
+function twilioHangup(){
+  if(S.twilioConn){ try{S.twilioConn.disconnect();}catch(e){} }
+  if(S.twilioDevice){ try{S.twilioDevice.disconnectAll(); S.twilioDevice.destroy();}catch(e){} }
+  S.twilioConn = null; S.twilioDevice = null;
+}
+
+function telnyxHangup(){
+  if(S.telnyxCall){ try{ S.telnyxCall.hangup(); }catch(e){} }
+  if(S.telnyxClient){ try{ S.telnyxClient.disconnect(); }catch(e){} }
+  S.telnyxCall = null; S.telnyxClient = null; S._telnyxAnswered = false;
+}
+
+function plivoHangup(){
+  if(S.plivoClient){
+    try{ S.plivoClient.client.hangup(); }catch(e){}
+    try{ S.plivoClient.client.logout(); }catch(e){}
+  }
+  S.plivoClient = null; S._plivoAnswered = false;
+}
+
+/* Engine-agnostic hangup: each branch no-ops when its engine is idle,
+   so all three can always run safely regardless of the active provider. */
+function hangupCall(){ plivoHangup(); telnyxHangup(); twilioHangup(); }
+
+/* ── Call-ended handler: freeze everything the millisecond the call ends ──
+   Fires on Twilio 'disconnect' — whether the prospect hung up, the rep
+   clicked Hang Up, or the leg dropped. Previously only the pill text
+   changed: the timer kept counting, the coach kept transcribing (burning
+   AAI/OpenAI spend), REC kept rolling, and the recorded duration kept
+   growing until the rep picked a dispo. Now: snapshot the true end time,
+   stop the clock, tear down audio + telephony, and drop the UI into an
+   explicit wrap-up state that waits for a disposition. */
+async function handleCallEnded(){
+  if(S.trainMode) return;                       // training has its own flow
+  if(!S.on || S.wrapActive) return;             // already wrapped / double-fire guard
+  S.wrapActive = true;
+  S.endedAt = new Date();                       // true call end — duration freezes here
+  clearInterval(S.timerInterval);               // stop the clock at the real duration
+  try{ await finalizeRecording(); }catch(e){}
+  try{ S.wsRep && S.wsRep.close(); }catch(e){}
+  try{ S.wsProspect && S.wsProspect.close(); }catch(e){}
+  // AudioContext.close() returns a PROMISE — closing an already-closed ctx
+  // rejects asynchronously, which try/catch can't catch and the global
+  // unhandledrejection banner showed "Cannot close a closed AudioContext"
+  // for days. Null the ref + swallow the promise so double-teardown is silent.
+  try{ if(S.ctx && S.ctx.state !== 'closed'){ const _c = S.ctx; S.ctx = null; _c.close().catch(()=>{}); } }catch(e){}
+  S.streams.forEach(st=>{ try{ st.getTracks().forEach(t=>t.stop()); }catch(e){} });
+  S.streams = [];
+  hangupCall();                                 // kill whichever engine is live so conn/device can't leak
+  setPill('call ended — pick a disposition (1-6)','warn');
+  const bar = $('dispoBar');
+  if(bar) bar.classList.add('wrap-pulse');
+  const uw = $('coachWaiting');
+  if(uw){ uw.style.display='block'; uw.style.color='var(--gold,#b45309)'; uw.textContent='📞 Call ended. Choose a disposition below to save + move on.'; }
+  // Auto-disposition: if the far end never answered (decline / no-answer /
+  // busy / ring timeout), don't burn wrap time — log it and roll the cadence.
+  _maybeAutoNoAnswer();
+}
+
+/* Polls the server for the DialCallStatus of the just-ended outbound call.
+   no-answer / busy / failed / canceled  -> auto-log "no_answer", skip wrap.
+   completed (answered) / unknown        -> leave the normal wrap flow alone.
+   If the rep manually picks a disposition while we're still polling, the
+   wrapActive guard below makes this a silent no-op. */
+async function _maybeAutoNoAnswer(){
+  const sid = S.callSid; S.callSid = null;
+  if(!sid || S.trainMode) return;
+  let status = null;
+  for(let i=0; i<6 && !status; i++){
+    try{
+      const r = await fetch('/api/dial_outcome?sid='+encodeURIComponent(sid));
+      const j = await r.json();
+      if(j && j.status) status = j.status;
+    }catch(e){}
+    if(!status) await new Promise(res=>setTimeout(res,700));
+  }
+  if(!status) return;                                       // unknown — manual wrap
+  if(['no-answer','busy','failed','canceled'].indexOf(status) < 0) return; // answered
+  if(!S.wrapActive) return;                                 // rep already dispositioned
+  setPill('no answer — auto-logged','warn');
+  const uw = $('coachWaiting');
+  if(uw){ uw.style.color='var(--muted,#64748b)'; uw.textContent='⏭ No answer ('+status+') — logged automatically. Rolling on…'; }
+  submitDispo('no_answer','');
+}
+function clearWrapState(){
+  S.wrapActive = false; S.endedAt = null;
+  const bar = $('dispoBar');
+  if(bar) bar.classList.remove('wrap-pulse');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTODIAL CADENCE
+   After each disposition: 3-second wrap buffer (Space = dial now,
+   Esc = stop), then auto-dials the next queue lead. Hard rules:
+   - never fires during LIVE or WRAP state (no double-dials, no
+     hanging up on a live prospect)
+   - never fires on the manual row or an exhausted queue
+   - rep touching anything (row click, manual row, toggle off,
+     Esc, Start) instantly cancels a pending countdown
+   - no retry loop: maybeAutoDial only runs from submitDispo, so a
+     failed dial just leaves the rep at setup — it never redials
+     ═══════════════════════════════════════════════════════════════ */
+let AutoDial = { enabled: true, timer: null, secsLeft: 0, sessionDials: 0 };
+try{ const _ad = localStorage.getItem('cc_autodial'); if(_ad !== null) AutoDial.enabled = (_ad === '1'); }catch(e){}
+
+function toggleAutoDial(){
+  AutoDial.enabled = !AutoDial.enabled;
+  try{ localStorage.setItem('cc_autodial', AutoDial.enabled ? '1' : '0'); }catch(e){}
+  syncAutoDialUI();
+  if(!AutoDial.enabled) cancelAutoDial('off');
+}
+function syncAutoDialUI(){
+  const b = $('btnAutoDial');
+  if(b){ b.classList.toggle('on', AutoDial.enabled); b.textContent = AutoDial.enabled ? '⚡ Auto ON' : '⚡ Auto'; }
+  const c = $('sessionDials');
+  if(c) c.textContent = AutoDial.sessionDials + ' dials';
+}
+function cancelAutoDial(reason){
+  if(AutoDial.timer){ clearInterval(AutoDial.timer); AutoDial.timer = null; }
+  const bar = $('autoDialBar');
+  if(bar) bar.classList.remove('show');
+}
+function updateAutoDialBar(){
+  const t = $('autoDialText');
+  if(t) t.innerHTML = '⚡ Next call in <b>' + AutoDial.secsLeft + '</b> <span class="ad-hint">Space = dial now · Esc = stop</span>';
+}
+function _autoDialFire(){
+  // Final validation at fire time — the rep may have clicked something
+  // during the countdown.
+  if(!AutoDial.enabled || Q.manual || Q.selected < 0) return;
+  if(S.on || S.wrapActive) return;
+  if(!(($('dialNum')||{}).value || '').replace(/[^0-9]/g,'')) return;
+  start();
+}
+function maybeAutoDial(){
+  cancelAutoDial();
+  if(!AutoDial.enabled) return;
+  if(Q.manual || Q.selected < 0) return;        // manual row / queue exhausted
+  if(S.on || S.wrapActive) return;              // never during live/wrap
+  if(!(($('dialNum')||{}).value || '').replace(/[^0-9]/g,'')) return;
+  AutoDial.secsLeft = 3;
+  const bar = $('autoDialBar');
+  if(bar) bar.classList.add('show');
+  updateAutoDialBar();
+  AutoDial.timer = setInterval(() => {
+    AutoDial.secsLeft--;
+    if(AutoDial.secsLeft <= 0){
+      cancelAutoDial();
+      _autoDialFire();
+    } else {
+      updateAutoDialBar();
+    }
+  }, 1000);
+}
+function autoDialNow(){
+  // Space during the countdown = skip the buffer and dial immediately.
+  // Does absolutely nothing unless a countdown is actually pending.
+  if(!AutoDial.timer) return;
+  cancelAutoDial();
+  _autoDialFire();
+}
+
+/* ── Test-mode dial guard (client side mirror of the server gate) ── */
+let dialGuard = { active: false, allowed: [] };
+function dialGuardCheck(){
+  // Returns true and blocks the call when the guard is on and the number
+  // is not allowlisted. The server enforces the same rule in the TwiML
+  // webhook — this is the early, visible layer.
+  if(!dialGuard.active) return false;
+  let d = (($('dialNum')||{}).value || '').replace(/[^0-9]/g,'');
+  if(d.length === 10) d = '1' + d;
+  const e164 = '+' + d;
+  if(dialGuard.allowed.indexOf(e164) >= 0) return false;
+  showSetupError('🛡 TEST MODE: dialing is locked to the allowlist (' +
+    dialGuard.allowed.length + ' numbers). "' + (($('dialNum')||{}).value||'') +
+    '" is not on it. Clear dial_allowed_numbers in data/cc_config.json to go live.');
+  return true;
+}
+function syncDialGuardBadge(){
+  const b = $('dialGuardBadge');
+  if(!b) return;
+  if(dialGuard.active){
+    b.style.display = '';
+    b.textContent = '🛡 TEST: ' + dialGuard.allowed.length + ' numbers';
+  } else {
+    b.style.display = 'none';
+  }
+}
+
+/* ── Transcript rendering ─────────────────────────────────────────── */
+function addTranscriptLine(speaker, text, isScreening){
+  S.transcriptLines.push({speaker, text});
+  const prefix = (speaker==='rep'?'REP':'PROSPECT') + ': ';
+  S.transcript += prefix + text + '\n';
+  // coachContext excludes screening lines — coach never sees them for staircase purposes
+  if(!isScreening) S.coachContext += prefix + text + '\n';
+  const box = $('transcriptBox');
+  const w = box.querySelector('.waiting'); if(w) w.remove();
+  const div = document.createElement('div');
+  div.className = 'msg ' + speaker + (isScreening ? ' screening' : '');
+  div.innerHTML = '<div class="speaker">'+(speaker==='rep'?'You':'Prospect')+'</div>'+(isScreening?'🤖 ':'')+esc(text);
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  // Log event for transcript exports
+  if(speaker==='rep'){
+    logEvent('rep', {text});
+  } else {
+    logEvent('prospect', {text, screening: !!isScreening});
+    if(!isScreening) _lastProspectSeq = S.seq;
+  }
+}
+
+/* ── Coaching display ─────────────────────────────────────────────── */
+/* Train-mode card stability: the SAY THIS card only flips when (a) it's urgent
+   (objection / screening / instant), or (b) the rep has actually delivered the
+   line currently on screen, or (c) the dwell cap (9s) expired. Anything else is
+   held as pending — the freshest held card renders the moment the rep speaks. */
+function showCoaching(a, isInstant, isStub){
+  const ct = (a && a.coach_type) || '';
+  const urgent = isInstant || isStub || ct==='screening'
+    || !!(a && (a.objection || a.rep_misquote || a.prospect_contradiction));
+  if(trainSession && !urgent){
+    const cardVisible = $('sayCard').classList.contains('show');
+    const undelivered = cardVisible && !S.cardDelivered;
+    const withinDwell = (Date.now() - (S.lastCardAt||0)) < 9000;
+    if(undelivered && withinDwell){
+      S.pendingCard = a;   // keep only the freshest
+      if(a.checklist) renderChecklist(a.checklist);
+      renderIntel(a);
+      S.lastAnalysis = a;
+      if(a.say_next){
+        S.recentCoachLines.push(a.say_next);
+        if(S.recentCoachLines.length > 3) S.recentCoachLines.shift();
+      }
+      return;
+    }
+  }
+  S.pendingCard = null;
+  _renderCoaching(a, isInstant, isStub);
+}
+
+function flushPendingCard(){
+  if(!S.pendingCard) return;
+  const a = S.pendingCard; S.pendingCard = null;
+  _renderCoaching(a, false, false);
+}
+
+function _renderCoaching(a, isInstant, isStub){
+  // Dedupe: skip re-rendering if >65% word overlap with recent coaching lines
+  if(!isInstant && !isStub && a.say_next && S.recentCoachLines.length > 0){
+    if(_isRepeatCoach(a.say_next)){
+      if(a.checklist) renderChecklist(a.checklist);
+      if(!isStub) S.lastAnalysis = a;
+      return;
+    }
+  }
+  $('coachWaiting').style.display = 'none';
+  const card = $('sayCard');
+  card.classList.add('show');
+
+  const _flagText = a.objection ? '⚠ ' + a.objection
+    : a.rep_misquote ? '⚠ Misquote — ' + a.rep_misquote
+    : a.prospect_contradiction ? '⚠ They contradicted themselves — ' + a.prospect_contradiction
+    : '';
+  $('objLine').textContent = _flagText;
+  $('objLine').style.display = _flagText ? 'block' : 'none';
+
+  $('contextLine').textContent = a.context_line || a.summary || '';
+  $('contextLine').style.display = (a.context_line||a.summary) ? 'block' : 'none';
+
+  const badge = $('coachBadge');
+  const ct = a.coach_type || '';
+  const isScreeningCard = ct === 'screening';
+  badge.textContent = isScreeningCard ? '🤖 screening' : (isInstant ? '⚡ instant' : ct);
+  badge.className = 'coach-badge ' + (isScreeningCard ? 'screening' : (isInstant ? 'instant' : ct));
+  badge.style.display = ct || isInstant ? 'inline-block' : 'none';
+
+  S.showingAlt = false;
+  S.primaryText = a.say_next || '';
+  // Permission-ask detection: if this card ends by asking for time/permission,
+  // the prospect's next short reply ("yeah, go ahead") is the green light and
+  // must bypass the filler gate in maybeScheduleAnalyze.
+  S.awaitingPermission = /\b(you got a (minute|few minutes)|got a minute|couple (of )?questions|few minutes to talk|sound fair|that sound okay)\b/i.test(a.say_next||'');
+  S.altSuggestion = a.alt_suggestion || null;
+  $('altToggle').style.display = S.altSuggestion ? 'block' : 'none';
+  $('altToggle').textContent = '→ Alt suggestion';
+
+  $('sayWords').textContent = a.say_next || '';
+  const color = isScreeningCard ? '#7c3aed' : (isInstant ? 'var(--gold)' : 'var(--acc)');
+  card.style.borderColor = color;
+  card.style.boxShadow = '0 0 0 3px ' + (isScreeningCard ? 'rgba(124,58,237,.35)' : isInstant ? 'rgba(210,153,34,.35)' : 'rgba(76,194,255,.35)');
+  setTimeout(() => { card.style.boxShadow = 'none'; }, 400);
+
+  // Log coaching event for transcript exports
+  logEvent('coach', {
+    trigger_seq: _lastProspectSeq,
+    source: isInstant ? 'instant' : 'gpt',
+    say_next: a.say_next || '',
+    objection: a.objection || null,
+    coach_type: ct,
+    alt_suggestion: a.alt_suggestion || null,
+    checklist: a.checklist || null,
+    temperature: a.temperature || null,
+    prospect_intel: a.prospect_intel || null
+  });
+  // Store last non-instant, non-stub coaching response for state carry-over (C1).
+  // Instant/objection/stub cards don't carry staircase state — skip them.
+  if(!isInstant && !isStub && ct !== 'screening'){
+    S.lastAnalysis = a;
+  }
+  // Rolling buffer for dedupe — track last 3 real coaching lines
+  if(!isInstant && !isStub && a.say_next){
+    S.recentCoachLines.push(a.say_next);
+    if(S.recentCoachLines.length > 3) S.recentCoachLines.shift();
+  }
+  // Delivery tracking: a fresh SAY THIS line is on screen — the coach must not
+  // flip it until the rep has actually spoken (or the dwell cap expires).
+  if(!isInstant && !isStub && a.say_next){
+    S.lastCardAt = Date.now();
+    S.cardDelivered = false;
+  }
+}
+
+function toggleAlt(){
+  if(!S.altSuggestion) return;
+  S.showingAlt = !S.showingAlt;
+  $('sayWords').textContent = S.showingAlt ? S.altSuggestion : S.primaryText;
+  $('altToggle').textContent = S.showingAlt ? '← Back to primary' : '→ Alt suggestion';
+}
+
+/* ── Screening helpers ────────────────────────────────────────────── */
+function showScreeningCard(){
+  showCoaching({
+    say_next: "Sounds automated — state your name and company plainly, then wait for a live pickup before running your opener.",
+    objection: null,
+    coach_type: 'screening'
+  }, true);
+}
+
+/* Layer 2 — manual reset: wipes false coaching progress instantly */
+function resetStaircase(){
+  S.coachContext = '';
+  S.lastProspect = '';
+  S.lastAnalysis = null;
+  S.openerShown = false;
+  S.recentCoachLines = [];
+  S.awaitingPermission = false;
+  S.cardDelivered = true; S.pendingCard = null; S.lastCardAt = 0; S.factOverride = null;
+  renderChecklist({intro:false, qualified:false, play_selected:false, committed:false});
+  $('intelCard').style.display = 'none';
+  $('coachWaiting').style.display = 'block';
+  $('coachWaiting').textContent = 'Reset — waiting for the real conversation to start…';
+  $('coachWaiting').style.color = 'var(--dim)';
+  $('sayCard').classList.remove('show');
+  const btn = $('btnFalseStart');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Reset — coaching restarted';
+  setTimeout(() => { btn.textContent = orig; }, 1500);
+}
+
+function renderChecklist(ck){
+  const steps = [['intro','Intro (matched to severity)'],['qualified','Qualified (their outcome)'],['play_selected','Play selected'],['committed','Commitment locked']];
+  const done = steps.filter(s => ck[s[0]]).length;
+  $('ckCount').textContent = done+'/'+steps.length;
+  $('ckFill').style.width = (done/steps.length*100)+'%';
+  $('ckList').innerHTML = steps.map(s =>
+    '<div class="ck-row '+(ck[s[0]]?'on':'')+'"><div class="dot">'+(ck[s[0]]?'✓':'○')+'</div>'+s[1]+'</div>'
+  ).join('');
+}
+
+function renderIntel(a){
+  const card = $('intelCard');
+  const pi = a.prospect_intel || {};
+  const temp = a.temperature;
+  $('intelTemp').textContent = temp==='warming'?'🔥 warming':temp==='cooling'?'🧊 cooling':temp?'· neutral':'';
+  const fields = [
+    ['Properties', pi.properties_owned],
+    ['Urgency',    pi.urgency],
+    ['Decides',    pi.decision_maker],
+    ['Wants',      pi.desired_outcome],
+    ['Their #',    pi.stated_number],
+  ];
+  const oe = a.offer_engine;
+  if(oe && oe.mao != null){
+    fields.push(['Live MAO', _fmtMoney(oe.mao)+'  ('+_fmtMoney(oe.offer_range[0])+'–'+_fmtMoney(oe.offer_range[1])+')']);
+    fields.push(['Repairs',  _fmtMoney(oe.est_repairs)+' est']);
+    if(oe.next_condition_question) fields.push(['Ask next', oe.next_condition_question]);
+  }
+  const anyFilled = fields.some(f => f[1]);
+  if(!anyFilled && !temp){ card.style.display='none'; return; }
+  card.style.display='block';
+  $('intelRows').innerHTML = fields.map(([k,v]) =>
+    '<div class="intel-row"><span class="intel-key">'+k+'</span><span class="intel-val '+(v?'filled':'empty')+'">'+(v ? esc(String(v)) : '—')+'</span></div>'
+  ).join('');
+}
+
+function setPill(text, cls){
+  const p = $('streamPill');
+  p.textContent = text;
+  p.className = 'status-pill ' + cls;
+  p.style.display = 'inline-block';
+}
+
+/* ── First-move card: static, no API call — shown at call connect ──── */
+function showFirstMoveCard(){
+  let say_next, alt_suggestion, next_action;
+  if(S.custom){
+    // Custom: "who" is a description, not a name — show a neutral connecting card
+    say_next = `Hey — how's it going?`;
+    alt_suggestion = `Wait for them to answer, then deliver your opener.`;
+    next_action = 'Wait for them to pick up, then the coach will generate your full opener.';
+  } else {
+    const owner = ($('owner')||{}).value || '';
+    const firstName = owner.split(' ')[0].replace(/,/g,'') || '[Name]';
+    say_next = `Hey, is this ${firstName}?`;
+    alt_suggestion = `Or if someone else answers: "Hey, is ${firstName} available?"`;
+    next_action = `Wait for ${firstName} to confirm, then the coach will generate your full intro.`;
+  }
+  showCoaching({
+    say_next, alt_suggestion, next_action,
+    context_line: 'Call just connected — waiting for the other side to pick up.',
+    coach_type: 'rapport',
+    staircase_step: 'intro',
+    qualification_verdict: 'undetermined',
+    play: null,
+    checklist: {intro:false, qualified:false, play_selected:false, committed:false},
+    summary: 'Call connecting.',
+    temperature: 'neutral',
+    prospect_intel: {properties_owned:null, urgency:null, decision_maker:null, desired_outcome:null, stated_number:null}
+  }, false, true);  // isStub=true — don't store as lastAnalysis
+}
+
+/* ── Dedupe: suppress coaching cards with >65% word overlap vs. recent ── */
+function _isRepeatCoach(text){
+  const words = new Set(text.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+  if(words.size < 4) return false;
+  for(const prev of S.recentCoachLines){
+    const prevWords = prev.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const overlap = prevWords.filter(w => words.has(w)).length;
+    if(overlap / Math.max(words.size, prevWords.length) > 0.65) return true;
+  }
+  return false;
+}
+
+/* Streaming partial: the fused coach emits say_next token-by-token over NDJSON.
+   Show the line forming in real time WITHOUT touching lastAnalysis, the coach
+   log, dedupe buffer, or card-delivery state — the final card does all of that. */
+function _renderStreamPartial(text){
+  if(trainSession){
+    const cardVisible = $('sayCard').classList.contains('show');
+    if(cardVisible && !S.cardDelivered && (Date.now() - (S.lastCardAt||0)) < 9000) return;
+  }
+  $('coachWaiting').style.display = 'none';
+  const card = $('sayCard');
+  card.classList.add('show');
+  card.style.opacity = '';
+  $('sayWords').textContent = text;
+  const badge = $('coachBadge');
+  badge.textContent = '⋯ thinking';
+  badge.className = 'coach-badge discovery';
+  badge.style.display = 'inline-block';
+}
+
+/* ── Analyze (GPT) ────────────────────────────────────────────────── */
+/* ── Opening line: fires after first real prospect line ── */
+async function showOpeningLine(){
+  const body = {
+    opening: true,
+    play: ($('play')||{}).value, owner: ($('owner')||{}).value,
+    address: ($('address')||{}).value, case_id: ($('caseId')||{}).value,
+    fee: ($('fee')||{}).value, notes: ($('notes')||{}).value,
+    persona_id: personaId,
+    playbook_id: playbookId,
+    lead_intel: S.leadIntel || null,
+    ...(S.custom ? {custom: S.custom} : {})
+  };
+  try{
+    const res = await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r = await res.json();
+    if(r.analysis){
+      showCoaching(r.analysis, false);
+      renderChecklist(r.analysis.checklist || {});
+      S.openerCardVisible = true;   // shield from filler-stub clobber while the rep reads it
+    }
+  }catch(e){ /* non-fatal — coach will populate once the prospect speaks */ }
+}
+
+/* ── API-minimization constants ───────────────────────────────────── */
+// Filler words: prospect acknowledged but said nothing new — return local static card
+const FILLER_RE = /^(yeah|yep|okay|ok|sure|right|uh[- ]?huh|mm+[-\s]?hm+|alright|i see|got it|go ahead|sounds good|of course|absolutely|no problem|cool|great|fine|i guess|i suppose|hm+|mhm|yup|nope|no)\.?[!]?$/i;
+// Objection keywords: short utterances that contain these MUST still go to the API
+const OBJECTION_KEYWORDS_RE = /lawyer|attorney|city|scam|not interested|don.t (call|contact)|remove|already.{0,15}(handle|deal|work)|lawsuit|police|reporter|investor|fraud/i;
+// Minimum gap between analyze() calls — instant objections bypass this.
+// Was 5000: on quick back-and-forth turns the coach visibly sat on its hands
+// for the remainder of the window. 2000 still caps API spend on filler-heavy
+// stretches but keeps the coach feeling live.
+const _ANALYZE_COOLDOWN_MS = 2000;
+let _lastAnalyzeAt = 0;
+
+/* maybeScheduleAnalyze: gate before every API call on a prospect turn */
+function maybeScheduleAnalyze(text){
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  // Permission beat: the coach card just asked "you got a minute?" / "couple questions…"
+  // ANY short reply here ("Yeah, okay, go ahead") is the green light — never gate it out.
+  if(S.awaitingPermission){
+    S.awaitingPermission = false;
+    scheduleAnalyze();
+    return;
+  }
+  // Prospect is confused or impatient — critical moment, always analyze.
+  if(/still there|you there|hello\?|are you gonna|wasting|who is this|what is this (about|all about)/i.test(text)){
+    scheduleAnalyze();
+    return;
+  }
+  // Train mode: any direct question from the prospect deserves a coached answer.
+  if(trainSession && /\?\s*$/.test(text.trim()) && words.length >= 3){
+    scheduleAnalyze();
+    return;
+  }
+  // Filler: ≤4 words + matches acknowledgment pattern → local card, zero API cost
+  if(words.length <= 4 && FILLER_RE.test(text.trim())){
+    if(trainSession) return;  // drills: never clobber the rep's active line with a filler card
+    if(S.openerCardVisible) return;  // opener is showing — a bare "yeah" must not wipe it
+    showCoaching({
+      say_next: "Keep going — you're in control. Stay curious, ask the next question.",
+      context_line: 'Prospect acknowledged.',
+      coach_type: 'rapport',
+      staircase_step: (S.lastAnalysis||{}).staircase_step || 'intro',
+      checklist: (S.lastAnalysis||{}).checklist || {},
+      prospect_intel: (S.lastAnalysis||{}).prospect_intel || {}
+    }, false, true);  // isStub — don't overwrite lastAnalysis or recentCoachLines
+    return;
+  }
+  // Short utterance with no objection signal → skip entirely
+  if(words.length < 6 && !OBJECTION_KEYWORDS_RE.test(text)){
+    return;
+  }
+  scheduleAnalyze();
+}
+
+function scheduleAnalyze(){
+  if(S.timer) clearTimeout(S.timer);
+  const sinceLastMs = Date.now() - _lastAnalyzeAt;
+  // Train mode uses a shorter cooldown — drills need a fast coach every beat.
+  const cooldown = trainSession ? 1500 : _ANALYZE_COOLDOWN_MS;
+  // If cooldown has not expired yet, wait the remainder; else fire after normal 250ms debounce
+  const wait = _lastAnalyzeAt === 0 ? 250 : Math.max(250, cooldown - sinceLastMs);
+  S.timer = setTimeout(analyze, wait);
+}
+
+let _analyzeInFlight = false;
+let _analyzeFailCount = 0;
+
+async function analyze(){
+  if(!S.coachContext.trim()) return;
+  if(_analyzeInFlight){ scheduleAnalyze(); return; }
+  _analyzeInFlight = true;
+  // Dim the say-card so the rep can SEE a new line is being worked on
+  const _sc=$('sayCard'); if(_sc && _sc.classList.contains('show')) _sc.style.opacity='0.45';
+  const body = {
+    transcript: S.coachContext, latest: S.lastProspect,
+    play: ($('play')||{}).value, owner: ($('owner')||{}).value,
+    address: ($('address')||{}).value, case_id: ($('caseId')||{}).value,
+    fee: ($('fee')||{}).value, notes: ($('notes')||{}).value,
+    persona_id: personaId,
+    playbook_id: playbookId,
+    lead_intel: S.leadIntel || null,
+    fact_override: S.factOverride || null,
+    prior_state: S.lastAnalysis ? {
+      staircase_step: S.lastAnalysis.staircase_step,
+      checklist:      S.lastAnalysis.checklist,
+      prospect_intel: S.lastAnalysis.prospect_intel,
+      condition_intel: S.lastAnalysis.condition_intel,
+      play:           S.lastAnalysis.play,
+      say_next:       S.lastAnalysis.say_next,
+      alt_suggestion: S.lastAnalysis.alt_suggestion
+    } : null,
+    ...(S.custom ? {custom: S.custom} : {})
+  };
+  try{
+    const res = await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body, stream:true})});
+    let r = {};
+    if(res.body && res.body.getReader){
+      // NDJSON stream: partial say_next lines render as they arrive; the final
+      // line carries the full analysis object (or an error).
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      for(;;){
+        const {done, value} = await reader.read();
+        if(done) break;
+        buf += dec.decode(value, {stream:true});
+        let nl;
+        while((nl = buf.indexOf('\n')) >= 0){
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if(!line) continue;
+          let msg; try{ msg = JSON.parse(line); }catch(_){ continue; }
+          if(msg.type === 'partial' && msg.say_next){
+            _renderStreamPartial(msg.say_next);
+          } else if(msg.type === 'final'){
+            r = msg;
+          }
+        }
+      }
+    } else {
+      r = await res.json();
+    }
+    if(r.analysis){
+      _analyzeFailCount = 0;
+      _lastAnalyzeAt = Date.now();  // stamp cooldown on every successful response
+      if(r.analysis.fact_correction) S.factOverride = r.analysis.fact_correction;
+      showCoaching(r.analysis, false);
+      renderChecklist(r.analysis.checklist || {});
+      renderIntel(r.analysis);
+    } else if(r.error){
+      _analyzeFailCount++;
+      showLiveProblem('coach error: ' + r.error);
+    }
+  }catch(e){
+    _analyzeFailCount++;
+    showLiveProblem('coach unreachable — check the server is running');
+  } finally {
+    _analyzeInFlight = false;
+    const _sc2=$('sayCard'); if(_sc2) _sc2.style.opacity='';
+  }
+}
+
+/* ── Stop + Disposition ───────────────────────────────────────────── */
+function resetToSetup(){
+  S.on = false;
+  clearWrapState();
+  clearInterval(S.timerInterval);
+  $('setupView').style.display = 'flex';
+  $('liveView').classList.remove('show');
+  $('liveTimer').textContent = '00:00';
+  const dispoBar = $('dispoBar'); if(dispoBar) dispoBar.style.display = '';
+  const endBtn = $('btnEndTraining'); if(endBtn) endBtn.style.display = 'none';
+  const startBtn = $('btnStartTraining');
+  if(startBtn){ startBtn.disabled=false; startBtn.textContent=getTrainMode()==='voice'?'🎙 Start Voice Training':'💬 Start Text Training'; }
+  // Restore train vs. normal cockpit view
+  const cockpit = document.querySelector('.cockpit');
+  const trainSetup = $('trainSetup');
+  if(trainModeActive){
+    if(cockpit) cockpit.style.display = 'none';
+    if(trainSetup) trainSetup.style.display = 'flex';
+  } else {
+    if(cockpit) cockpit.style.display = 'grid';
+    if(trainSetup) trainSetup.style.display = 'none';
+  }
+}
+
+async function stopCall(){
+  if(S.trainMode){ await endTrainingSession(); return; }
+  S.on = false;
+  await finalizeRecording();
+  try{S.wsRep && S.wsRep.close();}catch(e){}
+  try{S.wsProspect && S.wsProspect.close();}catch(e){}
+  // Same double-close fix as handleCallEnded — promise rejection, not sync throw.
+  try{ if(S.ctx && S.ctx.state !== 'closed'){ const _c = S.ctx; S.ctx = null; _c.close().catch(()=>{}); } }catch(e){}
+  S.streams.forEach(st=>{try{st.getTracks().forEach(t=>t.stop());}catch(e){}});
+  S.streams = [];
+  hangupCall();
+  clearInterval(S.timerInterval);
+  setPill('stopped','warn');
+}
+
+let _fuShowing = false;
+function dispo(d){
+  if(d==='followup'){
+    if(!_fuShowing){
+      $('fuRow').style.display = 'block';
+      const dt = new Date(); dt.setDate(dt.getDate()+2);
+      $('fuDate').value = dt.toISOString().split('T')[0];
+      _fuShowing = true;
+      return;
+    }
+  }
+  _fuShowing = false;
+  $('fuRow').style.display = 'none';
+  submitDispo(d, d==='followup' ? (($('fuDate')||{}).value || '') : '');
+}
+
+function submitFollowUp(){
+  _fuShowing = false;
+  $('fuRow').style.display = 'none';
+  submitDispo('followup', $('fuDate').value);
+}
+
+async function submitDispo(disposition, followUpDate){
+  if(S.trainMode){ await endTrainingSession(); return; }
+  const phone = ($('dialNum')||{}).value;
+  await stopCall();
+  saveCtx();
+  const recFile = await uploadRecording(S.recBlob, phone);
+  const body = {
+    phone: phone, play: ($('play')||{}).value,
+    owner: ($('owner')||{}).value, address: ($('address')||{}).value,
+    case_id: ($('caseId')||{}).value, started_at: S.startedAt,
+    ended_at: S.endedAt ? S.endedAt.toISOString() : '',
+    transcript: S.transcript, disposition: disposition,
+    follow_up_date: followUpDate, recording: recFile,
+    notes: ($('notes')||{}).value || '',
+    coach_log: JSON.stringify(S.callLog)
+  };
+  try{ await fetch('/api/call_end',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  catch(e){}
+  clearWrapState();
+  resetToSetup();
+  advanceQueue();
+  maybeAutoDial();
+}
+
+document.addEventListener('keydown', e => {
+  if(!S.on) return;
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  const map = {'1':'paid','2':'followup','3':'not_interested','4':'no_answer','5':'bad_number','6':'dnc'};
+  if(map[e.key]) dispo(map[e.key]);
+});
+
+/* Cadence keys — active between calls, never during LIVE/WRAP.
+   Esc stops a pending auto-dial; Space skips the buffer and dials now.
+   Space is strictly bound to the countdown state: with no pending
+   countdown it does absolutely nothing. */
+document.addEventListener('keydown', e => {
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if(e.key === 'Escape'){ cancelAutoDial('esc'); return; }
+  if(e.key === ' ' && !S.on && !S.wrapActive){ e.preventDefault(); autoDialNow(); }
+});
+
+/* ── Wire up queue interactions (delegated — survives re-renders) ── */
+$('queueList').addEventListener('click', e => {
+  const row = e.target.closest('.q-row');
+  if(!row) return;
+  selectLead(parseInt(row.dataset.idx, 10));
+});
+$('qManualRow').addEventListener('click', selectManual);
+$('qSearch').addEventListener('input', applyFilters);
+$('qPlay').addEventListener('change', applyFilters);
+$('qScore').addEventListener('change', applyFilters);
+
+/* ═══════════════════════════════════════════════════════════════
+   TRAIN MODE
+   ═══════════════════════════════════════════════════════════════ */
+let trainModeActive = false;
+let trainScenarios = {};
+let trainSession = null;   // { session_id, scenario_id, play_context, difficulty, mode, history, first_message }
+let elConn = null;         // ElevenLabsConnection instance (voice mode)
+let trainMicStream = null;
+let trainMicProcessor = null;
+let trainMicCtx = null;
+let voiceWatchdogTimer = null;  // interval that detects silent/stalled voice sessions
+let micHotAt = 0;               // last timestamp mic RMS crossed the speech threshold
+
+function toggleTrainMode(){
+  trainModeActive = !trainModeActive;
+  const btn = $('btnTrainMode');
+  const cockpit = document.querySelector('.cockpit');
+  const ts = $('trainSetup');
+  if(trainModeActive){
+    btn.classList.add('on');
+    if(cockpit) cockpit.style.display = 'none';
+    if(ts) ts.style.display = 'flex';
+    if(!Object.keys(trainScenarios).length) loadTrainScenarios();
+  } else {
+    btn.classList.remove('on');
+    if(cockpit) cockpit.style.display = 'grid';
+    if(ts) ts.style.display = 'none';
+  }
+}
+
+async function loadTrainScenarios(){
+  try{
+    const r = await (await fetch('/api/train/scenarios')).json();
+    trainScenarios = r.scenarios || {};
+    renderTrainScenarioPicker();
+  }catch(e){ showSetupError('Failed to load train scenarios: '+e.message); }
+}
+
+function renderTrainScenarioPicker(){
+  const sel = $('trainScenarioSel');
+  if(!sel) return;
+  const keys = Object.keys(trainScenarios);
+  if(!keys.length){ sel.innerHTML = '<option value="">No scenarios found</option>'; return; }
+  sel.innerHTML = keys.map(k =>
+    '<option value="'+esc(k)+'">'+esc(trainScenarios[k].name)+'</option>'
+  ).join('');
+  onTrainScenarioChange();
+}
+
+let previewCharacter = {name: null, gender: null};
+
+function onTrainScenarioChange(){
+  const sid = ($('trainScenarioSel')||{}).value;
+  const s = trainScenarios[sid];
+  const desc = $('trainDesc');
+  const firstMsg = $('trainFirstMsg');
+  if(!s){ if(desc) desc.textContent=''; if(firstMsg) firstMsg.textContent='—'; return; }
+  if(desc) desc.textContent = s.description || '';
+  const d = getTrainDiff();
+  const diff = s.difficulties && s.difficulties[d];
+  if(firstMsg) firstMsg.textContent = diff ? '"'+diff.firstMessage+'"' : '—';
+  rerollTrainCharacter();
+}
+
+async function rerollTrainCharacter(){
+  const sid = ($('trainScenarioSel')||{}).value;
+  const difficulty = getTrainDiff();
+  const el = $('trainCharacter');
+  if(!sid){ if(el) el.textContent = '—'; previewCharacter = {name:null, gender:null}; return; }
+  if(el) el.textContent = 'Picking…';
+  const genderPref = getTrainGenderPref();
+  try{
+    const r = await (await fetch('/api/train/preview_character?scenario_id='+encodeURIComponent(sid)+'&difficulty='+encodeURIComponent(difficulty)+'&gender_pref='+encodeURIComponent(genderPref))).json();
+    if(r.error){ if(el) el.textContent = '—'; previewCharacter = {name:null, gender:null}; return; }
+    previewCharacter = {name: r.prospect_name, gender: r.gender};
+    if(el) el.textContent = r.prospect_name + ' (' + r.gender + ' voice)';
+  }catch(e){
+    if(el) el.textContent = '—';
+    previewCharacter = {name:null, gender:null};
+  }
+}
+
+function getTrainDiff(){
+  const a = document.querySelector('.diff-btn.active');
+  return a ? a.dataset.diff : 'easy';
+}
+function getTrainMode(){
+  const a = document.querySelector('.mode-btn.active');
+  return a ? a.dataset.mode : 'text';
+}
+function getTrainGenderPref(){
+  const a = document.querySelector('.gender-btn.active');
+  return a ? a.dataset.gender : 'random';
+}
+
+function selectTrainDiff(d){
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  const b = document.querySelector('.diff-btn[data-diff="'+d+'"]');
+  if(b) b.classList.add('active');
+  onTrainScenarioChange();
+}
+
+function selectTrainGender(g){
+  document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+  const b = document.querySelector('.gender-btn[data-gender="'+g+'"]');
+  if(b) b.classList.add('active');
+  rerollTrainCharacter();
+}
+
+function selectTrainModeBtn(m){
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  const b = document.querySelector('.mode-btn[data-mode="'+m+'"]');
+  if(b) b.classList.add('active');
+  const warn = $('trainCostWarn');
+  if(warn) warn.style.display = (m==='voice' && window._elMissing) ? 'block' : 'none';
+  const btn = $('btnStartTraining');
+  if(btn) btn.textContent = m==='voice' ? '🎙 Start Voice Training' : '💬 Start Text Training';
+}
+
+function buildOpenerHint(){
+  const ctx = (trainSession.play_context||'').toUpperCase();
+  const name = trainSession.prospect_name || 'the owner';
+  const isCrisis = ctx.includes('FIRE') || ctx.includes('FORECLOSURE') || ctx.includes('WATER');
+  if(isCrisis){
+    return 'Crisis call — condolence first, never casual. Try: "Hi, '+name+'? This is [your name] — I\'m so sorry about what happened with your property. I\'m not with the city. Do you have a quick minute?"';
+  }
+  return 'Open humble and curious, never official. Try: "Hi, is this '+name+'? This is [your name] — I came across something on your property I was hoping to ask you about. Got a quick minute? It\'s okay to say no."';
+}
+
+async function startTraining(){
+  const sid = ($('trainScenarioSel')||{}).value;
+  const difficulty = getTrainDiff();
+  const mode = getTrainMode();
+  if(!sid){ showSetupError('Select a scenario first'); return; }
+
+  const btn = $('btnStartTraining');
+  if(btn){ btn.disabled=true; btn.textContent='Starting…'; }
+
+  try{
+    const r = await (await fetch('/api/train/start',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        scenario_id:sid, difficulty, mode,
+        prospect_name: previewCharacter.name,
+        gender: previewCharacter.gender,
+        gender_pref: getTrainGenderPref(),
+      })
+    })).json();
+    if(r.error) throw new Error(r.error);
+
+    trainSession = {
+      session_id: r.session_id,
+      scenario_id: r.scenario_id,
+      scenario_name: r.scenario_name,
+      play_context: r.play_context,
+      difficulty: r.difficulty,
+      difficulty_label: r.difficulty_label,
+      gender: r.gender,
+      prospect_name: r.prospect_name,
+      mode: mode,
+      history: [],
+      first_message: r.first_message,
+    };
+
+    // Prime form fields so the coach gets the right play/context
+    const mainPlay = (r.play_context||'GENERAL').split(',')[0].trim();
+    const playEl = $('play');
+    if(playEl){
+      const opts = Array.from(playEl.options).map(o=>o.value);
+      playEl.value = opts.includes(mainPlay) ? mainPlay : 'GENERAL';
+    }
+    // Set form fields to REAL training context so _node_opener gets clean data
+    const ownerEl = $('owner');
+    if(ownerEl) ownerEl.value = r.prospect_name || 'the owner';
+    const addressEl = $('address');
+    if(addressEl) addressEl.value = '(simulated)';
+    const notesEl = $('notes');
+    if(notesEl) notesEl.value = '';  // empty — let _build_fact_line use the play-type mapping
+
+    S.trainMode = mode;
+    S.trainSessionId = r.session_id;
+    S.repSpoke = false;   // opener stays locked until the rep actually says something
+    S.transcript = '';
+    S.coachContext = '';
+    S.lastProspect = '';
+    S.lastAnalysis = null;
+    S.callLog = [];
+    S.seq = 0;
+    _lastProspectSeq = 0;
+    S.openerShown = false;
+    S.recentCoachLines = [];
+    S.awaitingPermission = false;
+    S.cardDelivered = true; S.pendingCard = null; S.lastCardAt = 0; S._lastVoiceTurn = null; S.factOverride = null;
+    // v1: Custom play is LIVE-CALL ONLY. Training's simulated prospect is generated
+    // from the selected property scenario, so a custom goal has no matching prospect
+    // to practice against. Force off here so the coach doesn't get a half-applied custom
+    // context against a property-owner sim. (Proper training-custom needs scenario-side work.)
+    S.custom = null;
+
+    // Switch to live view
+    $('setupView').style.display = 'none';
+    $('liveView').classList.add('show');
+    const dispoBar = $('dispoBar'); if(dispoBar) dispoBar.style.display = 'none';
+    const endBtn = $('btnEndTraining'); if(endBtn) endBtn.style.display = 'inline-block';
+
+    const liveInfo = $('liveInfo');
+    if(liveInfo) liveInfo.innerHTML =
+      '<span style="color:var(--purple)">[TRAIN]</span> '+esc(r.scenario_name)+
+      ' · <span style="color:var(--dim)">'+esc(r.difficulty_label)+'</span>';
+
+    S.on = true;
+    S.startedAt = new Date().toISOString();
+    let elapsed = 0;
+    S.timerInterval = setInterval(()=>{
+      elapsed++;
+      $('liveTimer').textContent = String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');
+    }, 1000);
+
+    // Clear transcript
+    $('transcriptBox').innerHTML = '<div class="waiting" id="transcriptWaiting">Waiting for prospect…</div>';
+    $('coachWaiting').style.display = 'block';
+    $('sayCard').classList.remove('show');
+    // Show static "Hey, is this [Name]?" LAST — this is the final state that actually
+    // paints. Must run after the reset above, or the reset silently clobbers it back
+    // to "Waiting for prospect to speak…" with no visible card in between.
+    showFirstMoveCard();
+
+    if(mode==='text'){
+      $('trainInputRow').style.display = 'flex';
+      setTimeout(()=>{
+        addTrainMsg('prospect', trainSession.first_message);
+        trainSession.history.push({role:'prospect', text:trainSession.first_message});
+        S.transcript += 'PROSPECT: '+trainSession.first_message+'\n';
+        S.lastProspect = trainSession.first_message;
+        logEvent('prospect', {text:trainSession.first_message});
+        _lastProspectSeq = S.seq;
+        const w=$('transcriptWaiting'); if(w) w.remove();
+        // 2-part pacing: this is just the prospect's pickup ("Hello?") — the rep still
+        // needs to send the name-check line first. The full opener fires from sendTrainChat()
+        // once the rep's message comes back with the prospect's reply, not here.
+        const inp=$('trainInput'); if(inp) inp.focus();
+      }, 500);
+    } else {
+      $('trainInputRow').style.display = 'none';
+      await startVoiceTraining();
+    }
+
+  }catch(e){
+    showSetupError('Train start failed: '+e.message);
+    if(btn){ btn.disabled=false; btn.textContent=getTrainMode()==='voice'?'🎙 Start Voice Training':'💬 Start Text Training'; }
+  }
+}
+
+function addTrainMsg(role, text){
+  const tb = $('transcriptBox');
+  if(!tb) return;
+  const w = $('transcriptWaiting'); if(w) w.remove();
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role==='rep' ? 'rep' : 'prospect');
+  div.innerHTML = '<div class="speaker">'+(role==='rep'?'YOU (REP)':'PROSPECT')+'</div>'+esc(text);
+  tb.appendChild(div);
+  tb.scrollTop = tb.scrollHeight;
+}
+
+async function sendTrainChat(){
+  if(!trainSession || trainSession.mode!=='text') return;
+  const input = $('trainInput');
+  if(!input) return;
+  const repLine = input.value.trim();
+  if(!repLine) return;
+
+  input.value = '';
+  const sendBtn = $('btnTrainSend');
+  if(sendBtn) sendBtn.disabled = true;
+
+  // Cancel any still-pending coach request from a prior turn — its response would be
+  // stale by the time it resolves and would clobber the card for THIS turn.
+  if(S.coachAbort){ try{ S.coachAbort.abort(); }catch(e){} S.coachAbort = null; }
+
+  addTrainMsg('rep', repLine);
+  trainSession.history.push({role:'rep', text:repLine});
+  S.transcript += 'REP: '+repLine+'\n';
+  S.coachContext += 'REP: '+repLine+'\n';
+  logEvent('rep', {text:repLine});
+  S.repSpoke = true;   // rep has now delivered a line (e.g. the name-check)
+  S.cardDelivered = true;
+  flushPendingCard();
+
+  // Typing indicator
+  const tb = $('transcriptBox');
+  const typing = document.createElement('div');
+  typing.id = 'trainTyping';
+  typing.className = 'msg prospect partial';
+  typing.innerHTML = '<div class="speaker">PROSPECT</div>thinking…';
+  tb.appendChild(typing);
+  tb.scrollTop = tb.scrollHeight;
+
+  const historySlice = trainSession.history.slice(-20);
+  const priorState = S.lastAnalysis ? {
+    staircase_step: S.lastAnalysis.staircase_step,
+    checklist:      S.lastAnalysis.checklist,
+    prospect_intel: S.lastAnalysis.prospect_intel,
+    condition_intel: S.lastAnalysis.condition_intel,
+    play:           S.lastAnalysis.play
+  } : null;
+
+  let prospectLine = '';
+  let justShowedOpener = false;
+  try{
+    // ── Step 1: prospect line only — fast, unblocks the conversation immediately ──
+    const r = await (await fetch('/api/train/chat',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        session_id: trainSession.session_id,
+        rep_line: repLine,
+        history: historySlice,
+        scenario_id: trainSession.scenario_id,
+        difficulty: trainSession.difficulty,
+        prospect_name: trainSession.prospect_name,
+        gender: trainSession.gender,
+      })
+    })).json();
+
+    const t2 = $('trainTyping'); if(t2) t2.remove();
+
+    if(r.error){ showSetupError('Train chat error: '+r.error); return; }
+
+    prospectLine = r.prospect_line;
+    addTrainMsg('prospect', prospectLine);
+    trainSession.history.push({role:'prospect', text:prospectLine});
+    S.transcript += 'PROSPECT: '+prospectLine+'\n';
+    S.coachContext += 'PROSPECT: '+prospectLine+'\n';
+    S.lastProspect = prospectLine;
+    logEvent('prospect', {text:prospectLine});
+    _lastProspectSeq = S.seq;
+
+    // 2-part pacing: the rep's FIRST message is the name-check ("Hey, is this Mike?").
+    // The prospect's reply to THAT is what unlocks the full opener — fire the deterministic
+    // _node_opener paragraph here instead of Node 3's improvised response, so training
+    // matches the exact locked template live calls use. Every turn after uses Node 3 normally.
+    if(!S.openerShown){
+      S.openerShown = true;
+      justShowedOpener = true;
+      showOpeningLine();
+    }
+
+  }catch(e){
+    const t2=$('trainTyping'); if(t2) t2.remove();
+    showSetupError('Train chat failed: '+e.message);
+    return;
+  }finally{
+    if(sendBtn) sendBtn.disabled=false;
+    if(input) input.focus();
+  }
+
+  // ── Step 2: coach pipeline — fired in the background, never blocks input ──────
+  // Skip on the opener turn: the deterministic opener IS the coached response here;
+  // a Node 3 line answering the prospect's "Who's calling?" would clobber it.
+  if(justShowedOpener) return;
+  const ac = new AbortController();
+  S.coachAbort = ac;
+  fetch('/api/train/coach',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    signal: ac.signal,
+    body: JSON.stringify({
+      session_id: trainSession.session_id,
+      rep_line: repLine,
+      prospect_line: prospectLine,
+      history: historySlice,
+      scenario_id: trainSession.scenario_id,
+      difficulty: trainSession.difficulty,
+      play_context: trainSession.play_context,
+      prospect_name: trainSession.prospect_name,
+      gender: trainSession.gender,
+      persona_id: personaId,
+      playbook_id: playbookId,
+      prior_state: priorState,
+      fact_override: S.factOverride || null,
+      ...(S.custom ? {custom: S.custom} : {})
+    })
+  }).then(res => res.json()).then(r => {
+    if(S.coachAbort !== ac) return;   // superseded by a newer turn — drop this response
+    if(r.error || !r.coach_analysis) return;
+    if(r.coach_analysis.fact_correction) S.factOverride = r.coach_analysis.fact_correction;
+    showCoaching(r.coach_analysis, false);
+    renderChecklist(r.coach_analysis.checklist||{});
+    renderIntel(r.coach_analysis);
+  }).catch(e => {
+    if(e.name === 'AbortError') return;  // expected when a newer turn supersedes this one
+  });
+}
+
+async function endTrainingSession(){
+  if(!trainSession){ resetToSetup(); return; }
+  S.on = false;
+  clearInterval(S.timerInterval);
+
+  if(elConn){ try{elConn.disconnect();}catch(e){} elConn=null; }
+  if(trainMicProcessor){ try{trainMicProcessor.disconnect();}catch(e){} trainMicProcessor=null; }
+  if(trainMicStream){ try{trainMicStream.getTracks().forEach(t=>t.stop());}catch(e){} trainMicStream=null; }
+  if(trainMicCtx){ try{ if(trainMicCtx.state !== 'closed') trainMicCtx.close().catch(()=>{}); }catch(e){} trainMicCtx=null; }
+  _stopVoiceWatchdog();
+  hideVoiceStall();
+  micHotAt = 0;
+  const meter=$('micMeter'); if(meter) meter.style.display='none';
+
+  const inputRow=$('trainInputRow'); if(inputRow) inputRow.style.display='none';
+  setPill('stopped','warn');
+
+  try{
+    await fetch('/api/train/end',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        session_id: trainSession.session_id,
+        transcript: S.transcript,
+        coach_log: JSON.stringify(S.callLog),
+      })
+    });
+  }catch(e){}
+
+  trainSession=null;
+  S.trainMode=null;
+  S.trainSessionId=null;
+  resetToSetup();
+}
+
+/* ── ElevenLabs Voice Mode ─────────────────────────────────────── */
+async function startVoiceTraining(){
+  setPill('connecting…','warn');
+  try{
+    // ── Step 1: get signed URL + scenario persona from server ──────────
+    setPill('fetching credentials…','warn');
+    console.log('[VoiceTrain] fetching credentials for', trainSession.scenario_id, trainSession.difficulty);
+    let credRes, r;
+    try{
+      credRes = await fetch('/api/train/credentials',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          scenario_id:trainSession.scenario_id, difficulty:trainSession.difficulty,
+          prospect_name: trainSession.prospect_name,
+          gender: trainSession.gender,
+        })
+      });
+      r = await credRes.json();
+    }catch(fetchErr){
+      throw new Error('Credentials fetch failed: '+fetchErr.message);
+    }
+    console.log('[VoiceTrain] credentials response:', {ok:credRes.ok, has_signed_url:!!r.signed_url, error:r.error||null});
+    if(r.error) throw new Error('Server: '+r.error);
+    if(!r.signed_url) throw new Error('Server returned no signed_url — check elevenlabs_key and elevenlabs_agent_id in cc_config.json');
+
+    if(!r.voice_id){
+      console.warn('[ElevenLabs] no voice_id for gender="'+r.gender+'" — using agent default voice');
+    }
+
+    // ── Step 2: request mic ────────────────────────────────────────────
+    setPill('requesting mic…','warn');
+    console.log('[VoiceTrain] requesting mic');
+    trainMicStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    trainMicCtx = new AudioContext({sampleRate:16000});
+    const src = trainMicCtx.createMediaStreamSource(trainMicStream);
+    trainMicProcessor = trainMicCtx.createScriptProcessor(4096, 1, 1);
+    src.connect(trainMicProcessor);
+    trainMicProcessor.connect(trainMicCtx.destination);
+
+    // ── Step 3: open ElevenLabs WebSocket ────────────────────────────
+    setPill('opening WebSocket…','warn');
+    console.log('[VoiceTrain] connecting WebSocket to signed URL');
+    elConn = _connectEl(r, false);
+
+    trainMicProcessor.onaudioprocess = (e)=>{
+      const f32 = e.inputBuffer.getChannelData(0);
+      // Mic activity meter + speech detection (sampled every 8th frame — cheap)
+      let sum=0, n=0;
+      for(let i=0;i<f32.length;i+=8){ const v=f32[i]; sum+=v*v; n++; }
+      const rms=Math.sqrt(sum/Math.max(1,n));
+      const fill=$('micMeterFill');
+      if(fill) fill.style.width=Math.min(100,Math.round(rms*400))+'%';
+      if(rms>0.015) micHotAt=Date.now();
+      if(!elConn || !elConn.connected) return;
+      const i16 = new Int16Array(f32.length);
+      for(let i=0;i<f32.length;i++) i16[i]=Math.max(-32768,Math.min(32767,Math.round(f32[i]*32768)));
+      const bytes = new Uint8Array(i16.buffer);
+      let b=''; for(let i=0;i<bytes.length;i++) b+=String.fromCharCode(bytes[i]);
+      elConn.sendAudio(btoa(b));
+    };
+    const meter=$('micMeter'); if(meter) meter.style.display='inline-flex';
+
+    elConn.connect();
+
+  }catch(e){
+    console.error('[VoiceTrain] fatal:', e.message);
+    showLiveProblem('Voice training failed: '+e.message);
+    setPill('error','err');
+  }
+}
+
+/* Build + wire an ElevenLabsConnection. Shared by first connect and reconnect so
+   a stalled session can be swapped out without losing the drill/transcript. */
+function _connectEl(r, isReconnect){
+  const conn = new ElevenLabsConnection(r.signed_url, {
+    systemPrompt: r.system_prompt,
+    // voice_id intentionally suppressed until "Voice ID" override is enabled on the
+    // ElevenLabs agent Security tab → Overrides. Sending it without that toggle causes
+    // ElevenLabs to close the session (code 1000) after metadata, before any audio plays.
+    // To enable: set elevenlabs_voice_override_enabled:true in cc_config.json AND
+    // enable the Voice toggle on the agent, then change this back to: r.voice_id || null
+    voiceId: null,
+    firstMessage: isReconnect
+      ? '(the line cut out for a second — picks back up) Sorry, what were you saying?'
+      : (r.first_message || trainSession.first_message || 'Hello?'),
+    onTranscript(role, text){
+      hideVoiceStall();
+      const turnKey = role+'|'+text;
+      if(S._lastVoiceTurn === turnKey) return;   // ElevenLabs correction events re-send the same turn
+      S._lastVoiceTurn = turnKey;
+      addTrainMsg(role, text);
+      const label = role==='rep' ? 'REP' : 'PROSPECT';
+      S.transcript += label+': '+text+'\n';
+      S.coachContext += label+': '+text+'\n';
+      logEvent(role, {text});
+      if(role==='rep'){
+        S.repSpoke = true;   // rep delivered a line — coach may now advance past the opener
+        S.cardDelivered = true;
+        flushPendingCard();
+      } else if(role==='prospect'){
+        _lastProspectSeq = S.seq;
+        const w=$('transcriptWaiting'); if(w) w.remove();
+        // 2-part pacing: wait for the rep's name-check (S.repSpoke) before the full
+        // opener fires — matches live-call gating.
+        if(!S.openerShown && S.repSpoke){
+          S.openerShown = true;
+          showOpeningLine();
+          // Do NOT also analyze this turn — the deterministic opener IS the response.
+          // Letting Node 3 answer "Who's calling?" here clobbers the opener seconds later.
+        } else if(S.repSpoke){
+          S.lastProspect = text;
+          maybeScheduleAnalyze(text);
+        }
+      }
+    },
+    onStatusChange(status){
+      setPill(status, status==='connected'?'ok':'warn');
+      if(status==='connected'){
+        hideVoiceStall();
+        const w=$('transcriptWaiting'); if(w) w.remove();
+      }
+    },
+    onError(err){
+      console.error('[VoiceTrain] ElevenLabs error:', err.message);
+      showLiveProblem('ElevenLabs: '+err.message);
+      setPill('error','err');
+    },
+    onEnd(){ setPill('ended','warn'); _stopVoiceWatchdog(); }
+  });
+  _startVoiceWatchdog();
+  return conn;
+}
+
+/* ── Voice session watchdog ──────────────────────────────────────────
+   Two failure signatures, checked every 4s:
+   1) mic is hot but nothing comes back for 20s  → upstream stalled (socket
+      half-open, ElevenLabs turn-taking stuck) → offer reconnect.
+   2) nothing moves in EITHER direction for 30s → mic likely dead/blocked. */
+function _startVoiceWatchdog(){
+  _stopVoiceWatchdog();
+  voiceWatchdogTimer = setInterval(()=>{
+    if(!trainSession || trainSession.mode!=='voice' || !elConn || !elConn.connected) return;
+    const now = Date.now();
+    const silentFor = now - (elConn.lastEventAt || 0);
+    const micSilentFor = micHotAt ? (now - micHotAt) : Infinity;
+    if(silentFor > 20000 && micSilentFor < 20000){
+      showVoiceStall("You're talking but nothing is coming back — the voice session stalled. Reconnect keeps this drill and transcript.");
+    } else if(silentFor > 30000 && micSilentFor > 30000){
+      showVoiceStall("No audio is moving in either direction — your mic may be blocked or the session died silently.");
+    }
+  }, 4000);
+}
+function _stopVoiceWatchdog(){
+  if(voiceWatchdogTimer){ clearInterval(voiceWatchdogTimer); voiceWatchdogTimer = null; }
+}
+function showVoiceStall(msg){
+  const bar = $('voiceStallBar'); if(!bar) return;
+  $('voiceStallMsg').textContent = '⚠ ' + msg;
+  bar.style.display = 'flex';
+}
+function hideVoiceStall(){
+  const bar = $('voiceStallBar'); if(bar) bar.style.display = 'none';
+}
+
+/* One-click recovery: swap the dead ElevenLabs session for a fresh one.
+   Mic stream, transcript, coach state and staircase all survive. */
+async function reconnectVoiceTrain(){
+  if(!trainSession || trainSession.mode!=='voice') return;
+  hideVoiceStall();
+  setPill('reconnecting…','warn');
+  _stopVoiceWatchdog();
+  if(elConn){
+    elConn.onError = ()=>{}; elConn.onEnd = ()=>{}; elConn.onStatusChange = ()=>{};
+    try{ elConn.disconnect(); }catch(e){}
+    elConn = null;
+  }
+  try{
+    const credRes = await fetch('/api/train/credentials',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        scenario_id:trainSession.scenario_id, difficulty:trainSession.difficulty,
+        prospect_name: trainSession.prospect_name,
+        gender: trainSession.gender,
+      })
+    });
+    const r = await credRes.json();
+    if(r.error) throw new Error(r.error);
+    if(!r.signed_url) throw new Error('server returned no signed_url');
+    elConn = _connectEl(r, true);
+    elConn.connect();
+  }catch(e){
+    console.error('[VoiceTrain] reconnect failed:', e.message);
+    showVoiceStall('Reconnect failed: '+e.message+' — End Training and restart the drill.');
+    setPill('error','err');
+  }
+}
+
+class ElevenLabsConnection {
+  constructor(signedUrl, {systemPrompt, firstMessage, voiceId, onTranscript, onStatusChange, onError, onEnd}){
+    this.url = signedUrl;
+    this.systemPrompt = systemPrompt;
+    this.voiceId = voiceId || null;
+    this.firstMessage = firstMessage;
+    this.onTranscript = onTranscript;
+    this.onStatusChange = onStatusChange;
+    this.onError = onError;
+    this.onEnd = onEnd;
+    this.ws = null;
+    this.connected = false;
+    this._audioCtx = null;
+    this._audioQueue = [];
+    this._audioPlaying = false;
+    this._sampleRate = 16000;
+    this._isUlaw = false;
+    this._nextPlayTime = 0;
+    this._gotMetadata = false;
+    this.lastEventAt = 0;   // updated on every inbound ws message — watchdog uses this
+  }
+
+  connect(){
+    this.ws = new WebSocket(this.url);
+
+    this.ws.onopen = ()=>{
+      const init = {type:'conversation_initiation_client_data'};
+      if(this.systemPrompt || this.firstMessage || this.voiceId){
+        init.conversation_config_override = {
+          agent:{
+            ...(this.systemPrompt ? {prompt:{prompt:this.systemPrompt}} : {}),
+            first_message: this.firstMessage || 'Hello?'
+          },
+          ...(this.voiceId ? {tts:{voice_id:this.voiceId}} : {})
+        };
+        // NOTE: do NOT add custom_llm_extra_body here — that override is not enabled
+        // on the ElevenLabs agent Security tab and will cause the session to drop after
+        // the first user turn. Temperature variation comes from the scenario systemPrompt.
+      }
+      this.ws.send(JSON.stringify(init));
+    };
+
+    this.ws.onmessage = (ev)=>{
+      this.lastEventAt = Date.now();
+      try{ this._handle(JSON.parse(ev.data)); }catch(e){ console.error('[ElevenLabs]', e); }
+    };
+
+    this.ws.onerror = ()=>{
+      this.onError(new Error('WebSocket connection error'));
+    };
+
+    this.ws.onclose = (ev)=>{
+      this.connected = false;
+      console.log('[ElevenLabs] close', ev.code, ev.reason);
+      const _quota = (ev.code === 1002) || /quota|insufficient|credits|balance/i.test(ev.reason || '');
+      if(_quota){
+        this.onError(new Error('ElevenLabs account is OUT OF MINUTES/CREDITS — the voice '
+          + 'prospect cannot run until you top up at elevenlabs.io → Billing. '
+          + '(Their error: ' + (ev.reason || 'quota exceeded') + ')'));
+        return;
+      }
+      // If we closed before ever getting conversation_initiation_metadata, this was never
+      // a real conversation — treat it as an error even if the close frame looks "clean"
+      // (ElevenLabs closes cleanly when it rejects an override that isn't enabled on the agent).
+      if(!this._gotMetadata){
+        const reason = ev.reason || ('code ' + ev.code);
+        this.onError(new Error('Connection closed before the call started (' + reason + '). '
+          + 'If you just added a voice override, check that "Voice ID" is enabled under '
+          + 'your ElevenLabs agent → Security tab → Overrides.'));
+      } else if(ev.wasClean){
+        this.onEnd();
+      } else {
+        const detail = ev.reason ? (ev.reason + ' (code ' + ev.code + ')') : ('code ' + ev.code);
+        this.onError(new Error('Connection dropped mid-call (' + detail + '). '
+          + 'If it drops right after the first message, an override sent by this app '
+          + 'may not be enabled on the ElevenLabs agent (Security tab → Overrides).'));
+      }
+    };
+  }
+
+  _handle(msg){
+    const t = msg.type;
+    if(t!=='audio') console.log('[ElevenLabs msg]', t);   // diagnostics for stall hunts
+    if(t==='conversation_initiation_metadata'){
+      this.connected = true;
+      this._gotMetadata = true;
+      this._audioCtx = new AudioContext();
+      this._nextPlayTime = 0;
+      const meta = msg.conversation_initiation_metadata_event || {};
+      const fmt = (meta.agent_output_audio_format || 'pcm_16000').toLowerCase();
+      this._isUlaw = fmt.indexOf('ulaw') !== -1;
+      const rateMatch = fmt.match(/(\d+)/);
+      this._sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 16000;
+      this.onStatusChange('connected');
+    } else if(t==='audio'){
+      const b64 = msg.audio_event && msg.audio_event.audio_base_64;
+      if(b64) this._queueAudio(b64);
+    } else if(t==='agent_response'){
+      const text = msg.agent_response_event && msg.agent_response_event.agent_response;
+      if(text && text.trim()) this.onTranscript('prospect', text.trim());
+    } else if(t==='user_transcript'){
+      const text = msg.user_transcription_event && msg.user_transcription_event.user_transcript;
+      if(text && text.trim()) this.onTranscript('rep', text.trim());
+    } else if(t==='ping'){
+      const eid = msg.ping_event && msg.ping_event.event_id;
+      const delay = (msg.ping_event && msg.ping_event.ping_ms) || 0;
+      setTimeout(()=>{
+        if(this.ws && this.ws.readyState===WebSocket.OPEN){
+          this.ws.send(JSON.stringify({type:'pong', event_id:eid}));
+        }
+      }, delay);
+    } else if(t==='interruption'){
+      this._audioQueue = [];
+    }
+  }
+
+  sendAudio(b64Pcm){
+    if(this.ws && this.ws.readyState===WebSocket.OPEN){
+      this.ws.send(JSON.stringify({user_audio_chunk:b64Pcm}));
+    }
+  }
+
+  _queueAudio(b64){
+    // The playback context is created from a ws callback, outside a user gesture —
+    // Chrome can leave it suspended, which silently swallows ALL agent audio.
+    if(this._audioCtx && this._audioCtx.state === 'suspended'){
+      this._audioCtx.resume().catch(()=>{});
+    }
+    this._audioQueue.push(b64);
+    if(!this._audioPlaying) this._playNext();
+  }
+
+  _ulawByteToPcm(u){
+    // ITU-T G.711 mu-law decode -> 16-bit signed PCM
+    u = ~u & 0xFF;
+    const sign = u & 0x80;
+    let exponent = (u >> 4) & 0x07;
+    let mantissa = u & 0x0F;
+    let sample = ((mantissa << 3) + 0x84) << exponent;
+    sample -= 0x84;
+    return sign ? -sample : sample;
+  }
+
+  _playNext(){
+    if(!this._audioQueue.length || !this._audioCtx){this._audioPlaying=false; return;}
+    this._audioPlaying = true;
+    const b64 = this._audioQueue.shift();
+    try{
+      const bin = atob(b64);
+      const len = bin.length;
+      const bytes = new Uint8Array(len);
+      for(let i=0;i<len;i++) bytes[i]=bin.charCodeAt(i);
+
+      const rate = this._sampleRate || 16000;
+      let sampleCount, chan;
+      const buf = this._isUlaw
+        ? this._audioCtx.createBuffer(1, len, rate)
+        : this._audioCtx.createBuffer(1, Math.floor(len/2), rate);
+      chan = buf.getChannelData(0);
+      if(this._isUlaw){
+        for(let i=0;i<len;i++) chan[i] = this._ulawByteToPcm(bytes[i]) / 32768;
+      } else {
+        const view = new DataView(bytes.buffer);
+        sampleCount = Math.floor(len/2);
+        for(let i=0;i<sampleCount;i++) chan[i] = view.getInt16(i*2, true) / 32768;
+      }
+
+      const src = this._audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this._audioCtx.destination);
+      src.onended = ()=>this._playNext();
+
+      const now = this._audioCtx.currentTime;
+      const startAt = Math.max(now, this._nextPlayTime);
+      src.start(startAt);
+      this._nextPlayTime = startAt + buf.duration;
+    }catch(e){
+      console.error('[ElevenLabs] audio decode failed', e);
+      this._playNext();
+    }
+  }
+
+  disconnect(){
+    this.connected = false;
+    if(this.ws){ try{this.ws.close();}catch(e){} this.ws=null; }
+    if(this._audioCtx){ try{ if(this._audioCtx.state !== 'closed') this._audioCtx.close().catch(()=>{}); }catch(e){} this._audioCtx=null; }
+  }
+}
+
+/* ── My Progress / Rep Profile ────────────────────────────────────── */
+let _profileRules = [];
+let _profileWeak = [];
+
+function gradeColor(g){
+  if(!g) return 'var(--dim)';
+  const u = (g||'').toUpperCase();
+  if(u==='A+'||u==='A') return 'var(--good)';
+  if(u==='B') return 'var(--acc)';
+  if(u==='C') return 'var(--gold)';
+  if(u==='D') return 'var(--bad)';
+  return '#da3633';
+}
+function trendSym(t){ return t==='improving'?'↑':t==='declining'?'↓':'→'; }
+
+async function openProfileModal(){
+  $('profileModal').classList.add('show');
+  // Reset to loading state
+  $('profileGrade').textContent = '…';
+  $('profileGrade').style.color = 'var(--dim)';
+  $('profileCount').textContent = 'Loading…';
+  $('profileWeak').innerHTML = '';
+  $('profileScores').innerHTML = '';
+  try{
+    const [profR, scoresR] = await Promise.all([
+      fetch('/api/profile').then(r=>r.json()),
+      fetch('/api/profile/scores?limit=20').then(r=>r.json()),
+    ]);
+    renderProfile(profR.profile);
+    renderProfileScores(scoresR.scores || []);
+  }catch(e){
+    $('profileCount').textContent = 'Failed to load — is the server running?';
+  }
+}
+function closeProfileModal(){ $('profileModal').classList.remove('show'); }
+
+function renderProfile(p){
+  if(!p){
+    $('profileGrade').textContent = '—';
+    $('profileGrade').style.color = 'var(--dim)';
+    $('profileCount').textContent = 'No sessions scored yet. Complete a training session to begin.';
+    $('profileGrades5').innerHTML = '';
+    $('profileWeak').innerHTML = '<div style="color:var(--dim);font-size:12px">No data yet.</div>';
+    $('profileStrongWrap').style.display = 'none';
+    _profileRules = [];
+    _profileWeak = [];
+    renderRulesList();
+    return;
+  }
+  $('profileGrade').textContent = p.avg_overall || '—';
+  $('profileGrade').style.color = gradeColor(p.avg_overall);
+  const updated = (p.updated_at||'').slice(0,16);
+  $('profileCount').textContent = p.sessions_analyzed + ' sessions scored' + (updated ? '  ·  updated ' + updated : '');
+  // Last 5 grade pills
+  const pills = (p.last_5_grades||[]).map(g =>
+    '<span style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;'
+    +'padding:3px 10px;font:700 13px system-ui;color:'+gradeColor(g)+'">'+esc(g)+'</span>'
+  ).join('');
+  $('profileGrades5').innerHTML = pills || '<span style="color:var(--dim);font-size:12px">None yet</span>';
+  // Weak areas
+  _profileWeak = (p.weak_categories||[]).slice();
+  renderWeakList();
+  // Strong areas
+  const strong = p.strong_categories||[];
+  if(strong.length){
+    $('profileStrongWrap').style.display='block';
+    $('profileStrong').innerHTML = strong.map(s=>{
+      const col='var(--good)';
+      const pct=Math.round((s.avg_score/10)*100);
+      return '<div class="profile-cat-row">'+
+        '<div style="flex:1">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center">'+
+            '<span class="profile-cat-label" style="color:'+col+'">'+esc(s.label||s.category)+'</span>'+
+            '<span style="font-size:11px;color:var(--dim)">'+trendSym(s.trend)+'</span>'+
+          '</div>'+
+          '<div class="score-bar"><div class="score-bar-fill" style="width:'+pct+'%;background:'+col+'"></div></div>'+
+        '</div>'+
+        '<div class="profile-cat-score" style="color:'+col+'">'+s.avg_score+'<span style="font-size:11px;color:var(--dim)">/10</span></div>'+
+      '</div>';
+    }).join('');
+  } else {
+    $('profileStrongWrap').style.display='none';
+  }
+  // Rules
+  _profileRules = (p.manual_rules||[]).slice();
+  renderRulesList();
+}
+
+function renderWeakList(){
+  const box = $('profileWeak');
+  if(!box) return;
+  if(!_profileWeak.length){
+    box.innerHTML='<div style="color:var(--dim);font-size:12px;padding:4px 0">No weak areas detected yet — run more sessions.</div>';
+    return;
+  }
+  box.innerHTML = _profileWeak.map((w,i)=>{
+    const score = w.avg_score||0;
+    const pct = Math.round((score/10)*100);
+    const col = score<4?'var(--bad)':score<6?'var(--gold)':'var(--acc)';
+    return '<div class="profile-cat-row">'+
+      '<div style="flex:1">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center">'+
+          '<span class="profile-cat-label">'+esc(w.label||w.category)+'</span>'+
+          '<span style="display:flex;align-items:center;gap:8px">'+
+            '<span style="font-size:11px;color:var(--dim)">'+trendSym(w.trend)+'</span>'+
+            '<span class="profile-cat-score" style="color:'+col+'">'+score+'<span style="font-size:11px;color:var(--dim)">/10</span></span>'+
+          '</span>'+
+        '</div>'+
+        '<div class="score-bar"><div class="score-bar-fill" style="width:'+pct+'%;background:'+col+'"></div></div>'+
+      '</div>'+
+      '<button onclick="removeWeakness('+i+')" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:18px;padding:0 4px;flex-shrink:0;line-height:1" title="Dismiss">×</button>'+
+    '</div>';
+  }).join('');
+}
+
+function renderRulesList(){
+  const box = $('profileRulesList');
+  if(!box) return;
+  if(!_profileRules.length){
+    box.innerHTML='<div style="color:var(--dim);font-size:12px;padding:6px 0">No rules yet.</div>';
+    return;
+  }
+  box.innerHTML = _profileRules.map((r,i)=>
+    '<div class="profile-rule-row">'+
+      '<span class="profile-rule-text">'+esc(r)+'</span>'+
+      '<button onclick="removeProfileRule('+i+')" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:18px;padding:0 4px;line-height:1" title="Remove">×</button>'+
+    '</div>'
+  ).join('');
+}
+
+function addProfileRule(){
+  const inp=$('profileNewRule');
+  const val=(inp.value||'').trim();
+  if(!val) return;
+  _profileRules.push(val);
+  inp.value='';
+  renderRulesList();
+}
+function removeProfileRule(idx){ _profileRules.splice(idx,1); renderRulesList(); }
+
+async function saveProfileRules(){
+  try{
+    const r=await(await fetch('/api/profile/rules',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({rules:_profileRules})})).json();
+    if(r.error){alert('Save failed: '+r.error);return;}
+    const btn=event&&event.target;
+    if(btn){const orig=btn.textContent;btn.textContent='✓ Saved';setTimeout(()=>{btn.textContent='💾 Save rules';},1500);}
+  }catch(e){alert('Save failed — is the server running?');}
+}
+
+async function removeWeakness(idx){
+  _profileWeak.splice(idx,1);
+  renderWeakList();
+  try{
+    await fetch('/api/profile/weaknesses',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({weak_categories:_profileWeak})});
+  }catch(e){console.error('weakness update failed',e);}
+}
+
+function renderProfileScores(scores){
+  const box=$('profileScores');
+  if(!box) return;
+  if(!scores||!scores.length){
+    box.innerHTML='<div style="color:var(--dim);font-size:12px">No scored sessions yet.</div>';
+    return;
+  }
+  const cats=['opener','discovery','objection_handling','pitch_timing','tone','close'];
+  const catLabels={opener:'Opener',discovery:'Disc.',objection_handling:'Obj.',pitch_timing:'Timing',tone:'Tone',close:'Close'};
+  box.innerHTML='<table class="profile-scores-table">'+
+    '<thead><tr>'+
+      '<th>Date</th><th>Type</th><th>Grade</th>'+
+      cats.map(c=>'<th>'+catLabels[c]+'</th>').join('')+
+      '<th style="min-width:160px">Notes</th>'+
+    '</tr></thead><tbody>'+
+    scores.map(s=>{
+      const g=s.overall_grade||'';
+      const lbl=s.is_training?('🤖 '+(s.scenario_id||'train').replace(/_/g,' ')):('📞 '+(s.call_play||'live'));
+      return '<tr>'+
+        '<td style="color:var(--dim);white-space:nowrap">'+(s.scored_at||'').slice(0,10)+'</td>'+
+        '<td style="color:var(--dim);white-space:nowrap">'+esc(lbl)+'</td>'+
+        '<td style="font-weight:800;color:'+gradeColor(g)+'">'+esc(g)+'</td>'+
+        cats.map(c=>{
+          const sc=s[c+'_score']||0;
+          const col=sc<4?'var(--bad)':sc<6?'var(--gold)':sc>=8?'var(--good)':'var(--txt)';
+          return '<td style="color:'+col+';font-weight:600">'+sc+'</td>';
+        }).join('')+
+        '<td style="color:var(--dim);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(s.notes||'')+'">'+esc(s.notes||'—')+'</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table>';
+}
+
+async function backfillScores(){
+  if(!confirm('Score all past unscored sessions? Each uses one GPT-4o-mini call (~$0.001 each). Continue?')) return;
+  try{
+    const r=await(await fetch('/api/profile/backfill',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:'{}'})).json();
+    alert('Queued '+r.queued+' session(s) for scoring. Reopen "My Progress" in 30-60 seconds to see results.');
+  }catch(e){alert('Backfill failed — is the server running?');}
+}
+
+/* ── Init ─────────────────────────────────────────────────────────── */
+window._elMissing = false;
+loadCtx();
+loadPersonas();
+loadPlaybooks();
+loadSources();
+fetch('/api/status').then(r=>r.json()).then(d=>{
+  if(d.missing_keys){
+    $('statusPill').textContent='keys missing';
+    $('statusPill').className='status-pill warn';
+    $('statusPill').title='Edit cc_config.json — openai_key and assemblyai_key are required';
+  } else {
+    $('statusPill').textContent='ready';
+    $('statusPill').className='status-pill ok';
+  }
+  if(d.twilio_ready) twilioReady = true;
+  // Persistent inbound listener: callbacks from prospects redialing a pool
+  // DID ring this browser even when no outbound call is active.
+  if(d.twilio_ready) initInboundListener();
+  // Telephony engine switch: cc_config.json "telephony_provider" picks the
+  // WebRTC engine (twilio | telnyx | plivo). If the chosen engine isn't
+  // configured, fall back to Twilio when it's ready so dialing never dies.
+  const provReady = {twilio: d.twilio_ready, telnyx: d.telnyx_ready, plivo: d.plivo_ready};
+  const provLabel = {twilio: 'Twilio', telnyx: 'Telnyx', plivo: 'Plivo'};
+  if(d.telephony_provider && d.telephony_provider !== 'twilio' && provReady[d.telephony_provider]){
+    callMethod = d.telephony_provider;
+  } else if(d.telephony_provider && d.telephony_provider !== 'twilio'
+            && !provReady[d.telephony_provider] && !d.twilio_ready){
+    $('statusPill').textContent = d.telephony_provider + ' keys missing';
+    $('statusPill').className = 'status-pill warn';
+    $('statusPill').title = 'Edit cc_config.json — the ' + d.telephony_provider +
+      ' engine is selected but its keys are not configured';
+  }
+  const hint = $('startHint');
+  if(hint) hint.textContent = 'Call places from this browser over ' +
+    (provLabel[callMethod] || 'Twilio') + ' when you hit Start · use a headset';
+  window._elMissing = (d.elevenlabs_ready === false);
+  if(d.dial_guard){ dialGuard = d.dial_guard; syncDialGuardBadge(); }
+}).catch(()=>{});
+syncAutoDialUI();
+</script></body></html>

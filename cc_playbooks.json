@@ -1,0 +1,226 @@
+{
+ "permits": {
+  "name": "Permits & Violations",
+  "built_in": true,
+  "description": "RCB compliance play: $250 city-extension filing, contractor referral backend, wholesale pivot on multi-signal distress.",
+  "identity": "Risk & Compliance Bureau — an INDEPENDENT agency that monitors city code enforcement records and files official extension requests with the city. Never the city, never a government body.",
+  "mission": "Secure the $250 extension-filing fee. The filing buys the owner 30/60/90 days from the city. That is the ENTIRE service — we file the extension, we do not fix the violation. After the filing, route the owner to a vetted permit expediter or general contractor.",
+  "intro_structure": [
+   "1. Rep's name, then 'Risk and Compliance Bureau'",
+   "2. 'We're an independent agency' — the disclaimer, said early, load-bearing",
+   "3. State the fact from county records (the violation, the case, the deadline)",
+   "4. Interrupt question: 'Did you know the city had flagged you for that?'",
+   "5. Bridge: 'I figured you probably wouldn't have — that's actually the reason for my call.'",
+   "6. Agenda permission WITH the out: 'I'm going to ask you a couple of questions, and if there's nothing I can do to help, that's completely fine — just tell me no.'"
+  ],
+  "money_play": {
+   "fee": "$250 flat, filed extension request",
+   "collect_timing": "Collect AFTER the diagnosis — once the owner understands what the violation actually requires and what happens if it sits. Never lead with the fee.",
+   "scope_honesty": "MANDATORY: always state we file the extension only — we do not fix the violation, we do not send contractors as part of the fee.",
+   "close_frame": "Expertise framing, never 'it's simple'. DocuSign consent captured on the call or same-day follow-up.",
+   "never_charge": "Fire, flood, or emergency victims — referral-side money only, no direct fee. No exceptions."
+  },
+  "urgency_math": "Compounding fines + city deadlines + escalation to legal. All numbers must be internally consistent — never contradict your own math mid-call.",
+  "pivot_rule": {
+   "gate": "ONLY on multi-signal leads (2+ stacked signals: 311 + code + STR + trash/abatement) AND only AFTER the $250 filing is secured.",
+   "trigger_language": [
+    "I'm just done with it",
+    "I can't keep up",
+    "I just want out",
+    "tired of dealing with it",
+    "don't want the property anymore"
+   ],
+   "move": "Seed-plant with negative phrasing: 'You wouldn't be open to just walking away from the property altogether, would you?' If they engage, the call shifts to wholesale mechanics — motivation, timeline, condition, then numbers."
+  },
+  "bridge_after_interrupt": "Yeah, I figured you probably wouldn't have. That's actually one of the reasons why I gave you a call. Would you mind if I ask you a few questions about your situation? And if it turns out there's nothing I can do to help, that's completely fine — you can just tell me no.",
+  "question_doctrine": {
+   "lane_rule": "Stay in the COMPLIANCE lane — every question is about the violation, the deadline, and the owner's plan. Never drift into investor questions (ownership history, equity, mortgage) unless a pivot signal has already surfaced.",
+   "locked_sequence": [
+    "1. 'Tell me about the situation with that property right now.' — open-ended, gets them talking about the violation",
+    "2. 'How long has the city been flagging you on this?' — qualifies urgency",
+    "3. 'What's your plan to get this fixed?' — exposes the gap",
+    "4. 'Have you talked to the city about options, or are you kind of just waiting to see what happens?' — reveals whether they know solutions exist; THIS is what earns the right to introduce what RCB does"
+   ],
+   "presupposition_ban": "NEVER presuppose the sale inside a question — 'if we filed the extension for you...' before they've agreed to anything was explicitly rejected in training as manipulative. Questions discover; they do not pitch.",
+   "one_question_rule": "Ask ONE question per turn, then stop and listen. Never stack two questions in one breath — stacking lets them dodge the important one.",
+   "follow_up_rule": "Follow up on what they ACTUALLY said — use their own words, accurately. Never misquote them or argue about what they said; if they correct you, own it in one beat and move forward.",
+   "signal_listen": "While they answer, listen for distress signals (overwhelmed, can't keep up, tired of dealing with it, just want out). Calm and handling it → stay in the compliance lane. Distressed → check the pivot rule."
+  },
+  "call_arc": [
+   {
+    "beat": "name_check",
+    "lines": [
+     "Hey, is this [Name]?"
+    ]
+   },
+   {
+    "beat": "opener",
+    "lines": [
+     "Hey [Name], this is Sean calling from Risk and Compliance Bureau.",
+     "We're an independent agency.",
+     "I was going through county permit records and noticed you've got a permit violation on your property at [address].",
+     "Looks like an unpermitted addition.",
+     "Did you know the city had flagged you for that?"
+    ]
+   },
+   {
+    "beat": "bridge",
+    "lines": [
+     "I figured you probably wouldn't have.",
+     "That's actually the reason for my call.",
+     "Would you mind if I ask you a few questions about your situation?",
+     "And if there's nothing I can do to help, that's completely fine.",
+     "You can just tell me no."
+    ]
+   },
+   {
+    "beat": "situation_open",
+    "lines": [
+     "Tell me about the situation with that property right now."
+    ]
+   },
+   {
+    "beat": "ownership_probe",
+    "lines": [
+     "How long have you owned it?"
+    ]
+   },
+   {
+    "beat": "manager_probe",
+    "when": "absentee owner / property manager mentioned",
+    "lines": [
+     "A city violation seems like something she'd flag for you right away.",
+     "Why do you think she didn't?",
+     "That's a fair thing to be worried about.",
+     "If she's not catching something like this, what else might be slipping through?"
+    ]
+   },
+   {
+    "beat": "recency_probe",
+    "lines": [
+     "So this is the first violation you've had in [their timeframe].",
+     "Any idea why it happened now?"
+    ]
+   },
+   {
+    "beat": "urgency_math",
+    "lines": [
+     "The city flagged this fourteen days ago.",
+     "Fines typically start right around the two week mark.",
+     "So we're right up against that deadline now.",
+     "Maybe a day or two of breathing room left.",
+     "Once it hits, it compounds fast.",
+     "Potentially a couple hundred dollars a month.",
+     "Does that sound like something you'd want to get ahead of?"
+    ]
+   },
+   {
+    "beat": "pitch",
+    "lines": [
+     "That's exactly where we come in.",
+     "We file the extension with the city on your behalf.",
+     "That buys you time so the fines don't start piling up."
+    ]
+   },
+   {
+    "beat": "process_authority",
+    "lines": [
+     "Most people don't realize there's a specific process with the city inspectors.",
+     "The right paperwork, the right format, the right deadline, or it gets rejected.",
+     "We know exactly what the inspectors need, and we handle that filing for you."
+    ]
+   },
+   {
+    "beat": "price",
+    "lines": [
+     "It's two hundred and fifty dollars for the filing."
+    ]
+   },
+   {
+    "beat": "contractor_value",
+    "lines": [
+     "We also connect you with a trusted, vetted contractor who handles violations like this all the time.",
+     "You're not stuck vetting someone yourself or hoping you picked the right person."
+    ]
+   },
+   {
+    "beat": "consent_close",
+    "lines": [
+     "To get started, I'll send you a consent form to sign.",
+     "That lets us speak to the inspector on your behalf.",
+     "Once that's signed, I'll find out exactly what's going on with your case.",
+     "And get you connected with the right contractor.",
+     "Does that make sense for you?"
+    ]
+   },
+   {
+    "beat": "diy_objection",
+    "when": "they say they'll file it themselves / hesitate at price",
+    "lines": [
+     "You could try to file it yourself.",
+     "But anything you say directly to the inspector can be used against you in your case.",
+     "Even something said by accident can work against you.",
+     "That's exactly why we handle that conversation for you.",
+     "We make sure nothing gets said that hurts your case.",
+     "Is that a risk you want to take with only a day or two left?",
+     "Or would you rather have it handled right the first time?"
+    ]
+   },
+   {
+    "beat": "assumptive_close",
+    "lines": [
+     "I'm sending that over right now.",
+     "Do you have a second to pull it up and sign it while we're on the phone?",
+     "That way we can get moving on this today instead of waiting."
+    ]
+   },
+   {
+    "beat": "followup_fallback",
+    "when": "they won't sign live on the call",
+    "lines": [
+     "No problem, I'll send it to your email right now.",
+     "Take a look when you get a chance.",
+     "Since we're tight on the deadline, would it be alright if I follow up with you later today to make sure it's signed?"
+    ]
+   }
+  ]
+ },
+ "wholesale": {
+  "name": "Wholesale / Acquisitions",
+  "built_in": true,
+  "description": "Investor play: below-market acquisition or assignment. Motivation extraction, equity fork, MAO-anchored offers.",
+  "identity": "The investment company — a direct buyer. Plain about it: 'we buy properties'. No agency framing in this mode.",
+  "mission": "Convert distressed owners into a signed contract below market value, or an assignment. Extract seller motivation first; numbers come after motivation, never before.",
+  "urgency_math": "Auction date / foreclosure timeline is the clock. Count backwards from it in days, consistently. The deadline is the leverage — never invent one.",
+  "equity_fork": {
+   "fat_equity": "Cash-first. Anchor on speed and certainty: close before the auction, no banks, no repairs, as-is.",
+   "thin_equity": "Lease option FIRST, cash second. When there's no room for a discount, terms are the play — take over payments, option the equity."
+  },
+  "offer_math": {
+   "formula": "MAO = 70% x ARV - est. repairs - assignment fee (Austin band $8-18k)",
+   "anchor_rule": "Let THEM name the first number. The coach arms the rep with the range; the rep never blurts it.",
+   "logic_audit": "Offers must survive a sanity check. A $20k walk-away number on a $325k house is absurd — never coach an insult number; it kills the call and the company's name.",
+   "never": "Never pay fair market. If the math only works at retail, there is no deal — take the fast no."
+  },
+  "awareness_rules": [
+   "Absentee owners: never ask 'how long have you lived there' — check the record first.",
+   "Never assume knowledge the prospect couldn't have (zero-awareness rule).",
+   "Auction urgency must be real and verifiable — no manufactured deadlines."
+  ]
+ },
+ "fmcsa": {
+  "name": "FMCSA (stub)",
+  "built_in": true,
+  "stub": true,
+  "description": "PLACEHOLDER — freight/transportation compliance doctrine not yet extracted. Do not dial in this mode.",
+  "identity": "Stub — pending doctrine pass.",
+  "mission": "Stub. Until the FMCSA doctrine pass is complete, coach with General-mode adaptive behavior and flag every suggestion as provisional."
+ },
+ "general": {
+  "name": "General (Adaptive)",
+  "built_in": true,
+  "description": "No fixed script. The coach reads situational context live and guides with GUTS qualification pillars.",
+  "identity": "Adaptive — use whatever identity the lead context carries; default to {rep_identity}.",
+  "mission": "Adaptive: qualify on the four GUTS pillars (need, money, time, authority), find the prospect's actual problem in their own words, and let the persona's tactic matrix drive moment-to-moment coaching. No money play is assumed — surface one from the conversation before pricing anything."
+ }
+}

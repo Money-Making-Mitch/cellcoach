@@ -1,0 +1,322 @@
+{
+ "version": 2,
+ "_note": "Exemplar sources: 'owner-verbatim' = exact words from Sean's session chat (current conversation); 'corpus' = extracted verbatim from conversations.json G.U.T.S. transcripts via grep; 'pattern-derived' = constructed from doctrine where corpus had no clean example.",
+ "steps": {
+  "intro": {
+   "label": "Intro (Step 1a)",
+   "goal": "Name + agency + specific observed fact + ONE hook question. No agenda or roadmap yet. Tone matches severity: crisis calls (fire/water/foreclosure) acknowledge stress FIRST and use 'you got a few minutes?' not 'you aware of that?'",
+   "advance_when": "Prospect engages past the hook — asks a question, says 'yeah' or 'go ahead', or pushes back without hanging up.",
+   "sub_steps": {
+    "standard": {
+     "guidance": "Calm, factual. One sentence of specific context from the records, one hook question. Pattern: [Name] + [agency] + 'I was looking at [records type] and I noticed [specific situation]' + 'You aware of that situation?' Never start with 'how are you' or agency credentials alone.",
+     "exemplars": [
+      {
+       "situation": "code violations on property",
+       "text": "Hey Mike, this is {rep_first_name}. I know you don't know me, but I'm calling because I was looking at some property records in your area and I noticed you've got a couple of buildings that have some serious code violations. I'm not trying to scare you, but you aware of that situation?",
+       "source": "owner-verbatim"
+      },
+      {
+       "situation": "structure violation on rental property",
+       "text": "Listen, my name is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some property records in your area and I noticed you've got a structure violation on one of your rental properties. I actually checked in with the city inspector this morning about the severity, and he told me it's something that needs attention but it's manageable. I'm not trying to scare you, but are you aware of that situation?",
+       "source": "corpus"
+      },
+      {
+       "situation": "unpermitted addition",
+       "text": "Sarah, this is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some building records and I noticed you've got an unpermitted addition on your property. I spoke with the city inspector this morning and he flagged it. You aware of that situation?",
+       "source": "owner-verbatim"
+      },
+      {
+       "situation": "permit violation",
+       "text": "Listen, my name is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some property records in your area and I noticed you've got a permit violation on one of your properties. I actually checked with the city inspector this morning about what's going on. Are you aware of that situation?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "vacant": {
+     "guidance": "Vacant/blight cases: cite the specific city flag (blight, nuisance, maintenance). Same hook pattern. Mention the inspector to establish credibility on what's actually outstanding.",
+     "exemplars": [
+      {
+       "situation": "vacant property flagged for maintenance issues",
+       "text": "Hey David, this is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some city records and I noticed you've got a property that's been flagged as vacant with some maintenance issues. I checked with the inspector this morning and there are a few things the city wants addressed. You aware of what's going on there?",
+       "source": "owner-verbatim"
+      },
+      {
+       "situation": "vacant property with blight and nuisance complaints",
+       "text": "Listen, my name is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some property records in your area and I noticed you've got a vacant property that's been flagged by the city for blight and nuisance complaints. I checked with the inspector this morning and there are a few things the city wants addressed. Are you aware of that?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "multi_violation": {
+     "guidance": "THIS IS THE ONLY WAY TO HANDLE MULTIPLE VIOLATIONS. Lead with the most serious violation, then name the second issue briefly. One hook question at the end. Do not list every case. Same calm factual tone — no urgency inflation.",
+     "exemplars": [
+      {
+       "situation": "STR violation plus neighbor complaints stacked",
+       "text": "Jennifer, this is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some city records and I noticed your property has been flagged for short-term rental activity without a valid license. There's also been some noise complaints filed by neighbors. I checked with the inspector this morning and there are a few things the city wants addressed. You aware of what's going on there?",
+       "source": "owner-verbatim"
+      },
+      {
+       "situation": "structure violation on one of multiple rental properties",
+       "text": "Robert, my name is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some property records in your area and I noticed you've got a structure violation on one of your rental properties. I checked with the inspector this morning and there are a few things the city wants addressed. I'm not trying to scare you, but are you aware of that situation?",
+       "source": "owner-verbatim"
+      }
+     ]
+    },
+    "crisis": {
+     "guidance": "THIS IS THE ONLY WAY TO HANDLE EMERGENCY SITUATIONS (fire, water damage, foreclosure). Acknowledge the stress FIRST before anything else. No 'how are you', no casual tone. Hook question is 'you got a few minutes to talk?' — they already know about the problem. Never pitch anything in the intro on a crisis call.",
+     "exemplars": [
+      {
+       "situation": "foreclosure — behind on mortgage payments",
+       "text": "Robert, this is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I was looking at some mortgage records and I noticed you're behind on payments on your property. I know that's stressful. I'm not calling to add to that stress, but I wanted to reach out because we help homeowners in your exact situation. You got a few minutes to talk?",
+       "source": "owner-verbatim"
+      },
+      {
+       "situation": "fire damage with city violations stacking",
+       "text": "Listen, my name is {rep_first_name} with Risk and Compliance Bureau. I'm calling because I saw a fire incident report on one of your properties in Austin. I know that's probably stressful right now. I spoke with the fire inspector this morning and he gave me a sense of what happened. Are you aware of the situation?",
+       "source": "corpus"
+      }
+     ]
+    }
+   }
+  },
+  "agenda": {
+   "label": "Agenda / Roadmap (Step 1b)",
+   "goal": "Permission + roadmap + guilt-free exit. Comes ONLY after prospect engages past the hook. Sets up the conversation so the prospect knows what's coming and that they can say no at any point.",
+   "advance_when": "Prospect says 'sure', 'okay', 'go ahead', or asks what you need.",
+   "sub_steps": {
+    "permission_roadmap": {
+     "guidance": "Give the guilt-free exit, then the roadmap. 'It's okay to say no.' 'You decide if it makes sense.' Humble-curious posture — never official or salesy. Short version is fine for impatient prospects. Ends with a soft question or 'fair?'",
+     "exemplars": [
+      {
+       "situation": "full permission ask after prospect engages",
+       "text": "It's okay to say no to me, but I don't know — I might be able to help you here. Do you mind if I ask you a couple of questions?",
+       "source": "corpus"
+      },
+      {
+       "situation": "short version for impatient or skeptical prospect",
+       "text": "You decide if it makes sense. Fair?",
+       "source": "corpus"
+      },
+      {
+       "situation": "no-pressure framing when they ask what you want",
+       "text": "I'm just going to ask you a couple of questions, you tell me what's going on, and at the end you decide if you want to move forward or not. No pressure either way.",
+       "source": "pattern-derived"
+      }
+     ]
+    }
+   }
+  },
+  "qualification": {
+   "label": "Qualification (Step 2)",
+   "goal": "Surface all four pillars AND desired outcome before presenting anything. Pillars: NEED/GREED (pain + urgency), MONEY (can they fund a fix), AUTHORITY (who decides), TIME (how long open, what is the next city action). Also: what do THEY want the outcome to be — fix/keep, sell, lease, or done. NEVER presuppose the play.",
+   "advance_when": "All four pillars have a value AND desired_outcome is known. If pillars fail (no money, no authority, no urgency), take the disqualify path — firing a bad prospect is a win.",
+   "sub_steps": {
+    "need_greed": {
+     "guidance": "Pain + emotional trigger. ONE question per turn — never stack two questions in one breath; stacking lets them dodge the important one. Follow the locked sequence: situation -> how long flagged -> their plan -> whether they know options exist. Negative-phrased questions pull more honest answers than direct ones. Do NOT state the fine before asking — let them tell you how serious it feels to them.",
+     "exemplars": [
+      {
+       "situation": "first question after the agenda is granted — open-ended, about the violation",
+       "text": "Tell me about the situation with that property right now.",
+       "source": "locked-practice"
+      },
+      {
+       "situation": "urgency probe once they've described the situation",
+       "text": "How long has the city been flagging you on this?",
+       "source": "locked-practice"
+      },
+      {
+       "situation": "gap probe after urgency is known",
+       "text": "What's your plan to get this fixed?",
+       "source": "locked-practice"
+      },
+      {
+       "situation": "options-awareness probe — earns the right to introduce the extension",
+       "text": "Have you talked to the city about options, or are you kind of just waiting to see what happens?",
+       "source": "locked-practice"
+      },
+      {
+       "situation": "probing urgency on a vacant property",
+       "text": "How long has this property been vacant?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "money": {
+     "guidance": "Can they fund a fix or is cash locked up? Ask indirectly and softly. Accept any answer — a cash-poor owner may be a sell or foreclosure play. Never name a buy price first.",
+     "exemplars": [
+      {
+       "situation": "direct but soft money probe",
+       "text": "Let me ask you this — is money tight right now, or do you have a budget for something like this?",
+       "source": "corpus"
+      },
+      {
+       "situation": "when property might be upside-down or carrying debt",
+       "text": "Quick question — you don't have to answer this — but are you carrying a mortgage on the property right now, or do you own it free and clear?",
+       "source": "pattern-derived"
+      }
+     ]
+    },
+    "authority": {
+     "guidance": "Do they decide alone or need a spouse/partner? Ask directly but softly. If they need to loop someone in, get that person on now rather than after a 'I'll think about it' stall later.",
+     "exemplars": [
+      {
+       "situation": "checking who makes the call",
+       "text": "Who makes the decision on something like this? Is that you or is there someone else involved?",
+       "source": "corpus"
+      },
+      {
+       "situation": "authority check for a portfolio owner",
+       "text": "Who makes decisions on your properties — is that you or do you have a partner involved?",
+       "source": "corpus"
+      },
+      {
+       "situation": "when they hesitate or seem to need approval",
+       "text": "Who would make that decision? Is that you or do you need to check with someone?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "time": {
+     "guidance": "How long has the case been open and what is the specific next city action if nothing changes? Get a concrete consequence. If no deadline exists, surface what would make them move sooner.",
+     "exemplars": [
+      {
+       "situation": "timeline on a permit violation",
+       "text": "How long has this permit violation been sitting there?",
+       "source": "corpus"
+      },
+      {
+       "situation": "establishing time pressure plus city deadlines",
+       "text": "How long has this been sitting there? And have you heard anything from the city about deadlines or fines yet?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "desired_outcome": {
+     "guidance": "Surface what THEY want the outcome to be before picking the play. Fix and keep renting, sell outright, lease out, or just be done. Let them say it in their own words — never guess. This answer picks the play.",
+     "exemplars": [
+      {
+       "situation": "open-ended outcome question after establishing pain",
+       "text": "Let me ask you this — if you could solve this problem completely, what would that look like? Are you trying to get it fixed and back renting, or would you rather just get out from under this property completely?",
+       "source": "corpus"
+      },
+      {
+       "situation": "naming the menu of outcomes for them to choose from",
+       "text": "Some owners want to fix it and keep renting. Some owners are just done and want to sell the property completely. Some want to lease it out with an option to buy later. What matters most to you?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "disqualify": {
+     "guidance": "When pillars fail — no money, no authority, no urgency, or they explicitly won't move — fire the prospect politely and warmly. This is a WIN. 75% don't qualify and that's by design. Leave the door open, never argue, never push.",
+     "exemplars": [
+      {
+       "situation": "wrapping up warmly when they are not ready to move",
+       "text": "I appreciate your time. I'll touch base in three days.",
+       "source": "corpus"
+      },
+      {
+       "situation": "clean exit when they will not qualify",
+       "text": "No problem at all — not every situation is one we can help with right now. When things change, I'm easy to reach. Good luck with everything.",
+       "source": "pattern-derived"
+      }
+     ]
+    }
+   }
+  },
+  "commitment": {
+   "label": "Commitment / Hypothetical Close (Step 3)",
+   "goal": "Prospect names the finish line before any play is presented. Ask the hypothetical based on what THEY said during qualification. Get them to say what 'yes' looks like in their own words. Never present the play before completing this step.",
+   "advance_when": "Prospect states what they'd say yes to — a specific outcome, number, or condition they'd act on.",
+   "sub_steps": {
+    "hypothetical_close": {
+     "guidance": "Reference what they told you during qualification. Ask: 'If you could [their stated outcome] — what would that be worth to you?' or 'If someone offered you that today, you'd take it?' Pin their answer — it becomes the lever on 'I'll think about it' later.",
+     "exemplars": [
+      {
+       "situation": "hypothetical on walking away clean — sell play",
+       "text": "Let me ask you this — if you could walk away from this property today for cash and never deal with it again, what number would make that worth it to you?",
+       "source": "corpus"
+      },
+      {
+       "situation": "hypothetical on portfolio exit — multiple properties",
+       "text": "Let me ask you this — if you could walk away from these properties today and never deal with them again, what would that be worth to you? Like, what number would you need to see to just be done?",
+       "source": "corpus"
+      },
+      {
+       "situation": "confirming and pinning the number they named",
+       "text": "Walk away completely. Okay, so that's your number. And if someone offered you that in cash today, you'd take it?",
+       "source": "corpus"
+      }
+     ]
+    }
+   }
+  },
+  "play_close": {
+   "label": "Play + Close (Step 4)",
+   "goal": "Present exactly ONE play that qualification surfaced — never a menu. Lock a specific callback day/time. Use a freedom close. Pin 'I'll think about it' with their pre-commitment. Capture phone and email.",
+   "advance_when": "Callback locked with specific day/time AND contact info captured, OR prospect fired after failed close.",
+   "sub_steps": {
+    "present_one_play": {
+     "guidance": "One play only — the one their answers pointed to. Lead with their stated outcome, then the mechanics in 2-3 sentences. Reference what they said: 'you told me you want a clean break — here's how that works.' Never offer two options.",
+     "exemplars": [
+      {
+       "situation": "extension filing play — buys time with the city",
+       "text": "What I'm doing is filing an extension request with the city. That buys you 30 days minimum. During that time, you figure out your contractor, do the repair at your own pace. Meanwhile, the city's off your back — no weekly fines, no liens, no escalation. Once your work is done, you call the inspector for final inspection and you're clear.",
+       "source": "corpus"
+      },
+      {
+       "situation": "cash buy play — wants a clean break from multiple properties",
+       "text": "Clean break — here's what we can do. We can buy these two properties from you. We'd pay you based on the current condition with the violations factored in. You're not getting fifty grand because of the repair work needed, but you get cash, you close fast, and you're done. Would that interest you?",
+       "source": "corpus"
+      },
+      {
+       "situation": "contractor referral / retrofit permit play",
+       "text": "We can connect you with someone who specializes in retrofit permits. They'll assess the addition, tell you exactly what needs to happen to get it permitted, and give you a real cost. Once you know that number, you decide. If it's reasonable, we help you get it permitted. If it's too much, we can talk about other options. Sound fair?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "lock_callback": {
+     "guidance": "Specific day and time — never 'sometime this week.' Get phone and email. Freedom close tells them they can say no, which actually increases yes rates.",
+     "exemplars": [
+      {
+       "situation": "locking a next-day callback",
+       "text": "Appreciate your time today. Talk to you tomorrow.",
+       "source": "corpus"
+      },
+      {
+       "situation": "freedom close with the next step",
+       "text": "You decide if you want to work with us or not. No pressure either way. What do you say — can we set that up?",
+       "source": "corpus"
+      },
+      {
+       "situation": "capturing email to close the loop",
+       "text": "What email should I send the authorization form to?",
+       "source": "corpus"
+      }
+     ]
+    },
+    "pin_think_about_it": {
+     "guidance": "Their pre-commitment is the lever. When they stall, pin it back to what they said: 'A few minutes ago you told me if [X] you'd do it — what changed?' Isolate the real objection, answer it once, re-close. Never argue, never defend, never chase.",
+     "exemplars": [
+      {
+       "situation": "prospect stalls on extension filing after urgency was established",
+       "text": "While you think about it, you're down to five days. And at five days, the city's already prepping the escalation. I've done hundreds of these — the owners who move fast don't have problems. The ones who wait end up dealing with liens and hearings. I need $500 today to file the extension. Once that's filed, you're safe. You can take all the time you want after that to figure out the remediation. But the extension has to go in today.",
+       "source": "corpus"
+      },
+      {
+       "situation": "prospect stalls on lease option after pain was established",
+       "text": "Think about it this way — you're done dealing with violations, done chasing tenants, done with fines. We handle all of it. You just get paid. And you keep some upside if the property appreciates. Sound like something worth exploring?",
+       "source": "corpus"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "moves": {
+  "stroke": "Sincere recognition on legit pushback. 'Got it.' / 'That's a fair question.' / 'I appreciate you being straight with me.' Validates without conceding control. Use before redirecting, not instead of it.",
+  "nurture": "Normalize their pain. 'A lot of owners in your situation tell me the same thing.' / 'I hear that a lot.' Lowers defensiveness, signals this is solvable.",
+  "redirection": "Short answer + question back. Negative phrasing pulls positive answers. Use OPPOSITE direction when attacked — never argue, never defend. When they're hot: use the takeaway rather than pushing harder.",
+  "takeaway": "Pull back when they're posturing or applying pressure. 'I don't know if we can actually help you here.' / 'Maybe the timing isn't right.' Resets the frame — often triggers them to lean back in."
+ }
+}

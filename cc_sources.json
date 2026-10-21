@@ -1,0 +1,27 @@
+{
+  "sources": [
+    {
+      "id": "command_center",
+      "name": "Command Center",
+      "path": "../data/command_center.db",
+      "table": "leads",
+      "where": "phone IS NOT NULL AND phone != '' AND stage = 'NEW'",
+      "order": "priority DESC",
+      "limit": 400,
+      "map": {
+        "owner": "owner",
+        "phone": "phone",
+        "address": "address",
+        "zip": "zip",
+        "case_id": "case_id",
+        "play": "play",
+        "score": "score",
+        "priority": "priority",
+        "description": "description",
+        "prop_value": "prop_value",
+        "portfolio_n": "portfolio_n",
+        "opened": "opened_date"
+      }
+    }
+  ]
+}

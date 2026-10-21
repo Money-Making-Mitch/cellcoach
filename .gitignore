@@ -1,0 +1,20 @@
+# Secrets - never commit
+cc_config.json
+*.env
+.env*
+
+# Local data & call audio
+*.db
+*.db-journal
+recordings/
+*.webm
+
+# Backups, logs, caches
+*.bak*
+*.log
+__pycache__/
+*.pyc
+.fuse_hidden*
+
+# Large private conversation dump
+GUTS_CLAUDE_CONVO.txt
